@@ -1,3 +1,3 @@
 # Explicit MGT Control
 
-TO download the data install  `git lfs`
+To download the data install  `git lfs`
