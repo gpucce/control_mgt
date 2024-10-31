@@ -166,3 +166,5 @@ cython_debug/
 checkpoints-classifier
 wandb
 .vscode
+TODO.md
+notes.md
