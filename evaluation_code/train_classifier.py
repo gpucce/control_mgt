@@ -138,11 +138,18 @@ def main(args):
     data = pd.read_json(args.datapath, lines=True)
     
     selected_fname = args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json"
+    selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
+    datapath_othergen = "data/generation_output_llama-3.1-8b-instruct-hf_xsum_informed.jsonl" if "llama-3.1-70b" in args.datapath else "data/generation_output_llama-3.1-70b-instruct-hf_xsum_informed.jsonl"
+    data_other_gen = pd.read_json(datapath_othergen, lines=True)
+
     selected = json.load(open(selected_fname))
+    selected_other_gen = json.load(open(selected_othergen_fname))
 
     tr_data = data[data["id"].isin(selected["tr"])]
     va_data = data[data["id"].isin(selected["val"])]
     te_data = data[data["id"].isin(selected["te"])]
+
+    te_data_other_gen = data_other_gen[data_other_gen["id"].isin(selected_other_gen["te"])]
 
     # if args.num_samples is not None:
     #     selected_fname = args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits") + f".split.{args.num_samples}.json"
@@ -157,6 +164,7 @@ def main(args):
     tr_data = create_dataset(tr_data)
     va_data = create_dataset(va_data)
     te_data = create_dataset(te_data)
+    te_data_other_gen = create_dataset(te_data_other_gen)
 
     if args.wandb:
         import wandb
@@ -175,6 +183,7 @@ def main(args):
     tr_dataset = NewsDataset(tr_data)
     va_dataset = NewsDataset(va_data)
     te_dataset = NewsDataset(te_data)
+    te_dataset_other_gen = NewsDataset(te_data_other_gen)
 
     # splits = {}
     # for (_data, _name) in [(tr_data, "tr"), (va_data, "val"), (te_data, "te")]:
@@ -218,7 +227,7 @@ def main(args):
 
     output_folder = f"{args.model_name}" if not args.freeze_backbone else f"{args.model_name}_frozen" 
     trainer_args = TrainingArguments(
-        output_dir=f"checkpoints-classifier/{args.model_name}",
+        output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
         learning_rate=args.lr,
         num_train_epochs=args.nepochs,
@@ -234,6 +243,7 @@ def main(args):
         weight_decay=0.0,
         run_name=f"{args.model_name}" if not args.freeze_backbone else f"{args.model_name}.frozen",
         metric_for_best_model="f1",
+        greater_is_better=True,
         report_to="wandb" if args.wandb else "none",
         load_best_model_at_end=True,
         remove_unused_columns=False,
@@ -264,8 +274,14 @@ def main(args):
     trainer.train()
 
     test_results = trainer.predict(test_dataset=te_dataset)
+    test_results_other_generator = trainer.predict(test_dataset=te_dataset_other_gen, metric_key_prefix="test_othergen")
+    
+    from pprint import pprint as pp
     print("\nTest Results:")
-    print(test_results.metrics)
+    pp(test_results.metrics)
+
+    print("\nTest Other Generator Results:")
+    pp(test_results_other_generator.metrics)
 
     if args.wandb:
         wandb.finish()
