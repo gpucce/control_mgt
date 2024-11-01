@@ -15,5 +15,6 @@ eval "$(conda shell.bash hook)" # init conda
 conda activate /leonardo_scratch/large/userexternal/gpuccett/Repos/MGT2025-private/conda_venv_vllm
 module load gcc
 
-srun python /leonardo_scratch/large/userexternal/gpuccett/Repos/MGT2025-private/humaneval/it/generation_code/generate_article_eng_xsum.py \
-    --model_name llama-3.1-8b-instruct-hf --informed
+srun python /leonardo_scratch/large/userexternal/gpuccett/Repos/control_mgt/generation_code/generate_article_eng_xsum.py \
+    --model_name llama-3.1-8b-instruct-hf --informed --temperature 0.8
+

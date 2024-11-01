@@ -88,6 +88,9 @@ def get_random_prompt_cita_anita(m):
 
 SYSTEM_PROMPTS_XSUM=[
     "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics",
+    "You are a journalist from the Wales writing for a national newspaper on a broad range of topics, with a focus on local news",
+    "You are a journalist from the United States writing for an international newspaper on a broad range of topics, Economics and Politics",
+    "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics, with a focus on Sports",
 ]
 
 USER_PROMPTS_XSUM=[
@@ -95,7 +98,7 @@ USER_PROMPTS_XSUM=[
 ]
 
 USER_PROMPTS_XSUM_INFORMED=[
-    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 300 words.",
+    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 500 words.",
 ]
 
 def get_random_prompt_xsum(m, informed):
