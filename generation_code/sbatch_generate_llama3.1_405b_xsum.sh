@@ -63,5 +63,5 @@ done
 
 echo "STARTING python command"
 
-python /leonardo_scratch/large/userexternal/gpuccett/Repos/MGT2025-private/humaneval/it/generation_code/generate_article_eng_xsum.py \
+python /leonardo_scratch/large/userexternal/gpuccett/Repos/control_mgt/generation_code/generate_article_eng_xsum.py \
     --model_name llama-3.1-405b-instruct-hf --informed

@@ -18,6 +18,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--model_name", type=str, required=True,
         choices=["llama-3.1-8b-instruct-hf", "llama-3.1-70b-instruct-hf", "llama-3.1-405b-instruct-hf", "anita_8b"])
+    parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--informed", action="store_true", default=False)
     return parser.parse_args()
 
@@ -41,7 +42,7 @@ def get_tp_and_pp_size(model_name):
         tensor_parallel_size = 16
     return tensor_parallel_size, pipeline_parallel_size
 
-def get_vllm_llm_and_params(model_name: str, tokenizer_name: str):
+def get_vllm_llm_and_params(model_name: str, tokenizer_name: str, temp=0.8):
 
     if tokenizer_name != model_name:
         print("vllm will ignore the tokenizer_name and use the same as model_name")
@@ -84,16 +85,21 @@ if __name__ == "__main__":
     import os
     # import sys
 
-    args = parse_args()
     my_folder = "/leonardo_scratch/large/userexternal/gpuccett/"
     models_folder = os.path.join(my_folder, "models/hf_llama/")
     data_path = os.path.join(my_folder, "Repos/MGT2025-private/xsum")
     ds = datasets.load_dataset(data_path)["train"]
     df = ds.to_pandas()
     df = df.loc[df.document.apply(lambda x: len(x) > 1000 if isinstance(x, str) else False), :]
+
+    args = parse_args()
+    temperature = args.temperature
+    informed = args.informed
     _model_name = args.model_name
+
     model_path = os.path.join(models_folder, _model_name)
     tok = AutoTokenizer.from_pretrained(model_path)
+
 
     n_articles = 100_000
     messages = df["title"].values[:n_articles]
@@ -102,7 +108,7 @@ if __name__ == "__main__":
     prompt_func = get_random_prompt_xsum if "anita" not in _model_name else get_random_prompt_xsum_anita
     prompts = [prompt_func(m, args.informed) for m in messages]
 
-    llm, params = get_vllm_llm_and_params(model_path, model_path)
+    llm, params = get_vllm_llm_and_params(model_path, model_path, temp=args.temperature)
     prompts = prepare_inputs(prompts, llm)
 
     # output_text = []
@@ -111,7 +117,7 @@ if __name__ == "__main__":
 
     sep = "-"*10
     count = 0
-    outfile = f"generation_output_{_model_name}_xsum.jsonl"
+    outfile = f"generation_output_{_model_name}_xsum_temp{temperature}.jsonl"
     if args.informed:
         outfile = outfile.replace(".jsonl", "_informed.jsonl")
     if os.path.exists(outfile):
