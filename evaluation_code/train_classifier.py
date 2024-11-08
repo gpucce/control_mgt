@@ -24,14 +24,16 @@ class NewsDataset(Dataset):
     def __init__(
             self,
             data,
+            skip_nchars=0,
     ):
         self.data = data
+        self.skip_nchars = skip_nchars
     
     def __getitem__(self, index):
         data = self.data.iloc[index]
         sample = {
             "id": data.id,
-            "text": data.text,
+            "text": data.text[self.skip_nchars:],
             "label": data.label
         }
         return sample
@@ -82,7 +84,7 @@ def custom_compute_metrics(preds):
     acc = accuracy_score(y_true=_labels, y_pred=_preds)
     recall = recall_score(y_true=_labels, y_pred=_preds)
     precision = precision_score(y_true=_labels, y_pred=_preds)
-    f1 = f1_score(y_true=_labels, y_pred=_preds)
+    f1 = f1_score(y_true=_labels, y_pred=_preds, average="micro")
     return {"acc": acc, "recall": recall, "precision": precision, "f1": f1}
 
 
@@ -124,7 +126,9 @@ def compute_tokenized_lengths(data, tokenizer):
 
 def create_dataset(df_data):
     df_real         = df_data[["real_article", "id", "source"]].rename(columns={"real_article": "text"})
+    # df_real = df_real.iloc[:len(df_real) // 2, :]
     df_generated    = df_data[["generated_text", "id", "source"]].rename(columns={"generated_text": "text"})
+    # df_generated = df_generated.iloc[len(df_generated) // 2:, :]
     
     df_real["label"] = 0
     df_generated["label"] = 1
@@ -137,9 +141,9 @@ def create_dataset(df_data):
 def main(args):
     data = pd.read_json(args.datapath, lines=True)
     
-    selected_fname = args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json"
+    selected_fname = (args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json").replace("_temp0.8", "")
     selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
-    datapath_othergen = "data/generation_output_llama-3.1-8b-instruct-hf_xsum_informed.jsonl" if "llama-3.1-70b" in args.datapath else "data/generation_output_llama-3.1-70b-instruct-hf_xsum_informed.jsonl"
+    datapath_othergen = args.datapath.replace("llama-3.1-70b", "llama-3.1-8b") if "llama-3.1-70b" in args.datapath else args.datapath.replace("llama-3.1-8b", "llama-3.1-70b")
     data_other_gen = pd.read_json(datapath_othergen, lines=True)
 
     selected = json.load(open(selected_fname))
@@ -173,6 +177,7 @@ def main(args):
                    config={
                        "num_samples": args.num_samples,
                        "data_max_length": args.max_length,
+                       "skip_nchars": args.skip_nchars,
                        "freeze_backbone": args.freeze_backbone,
                        "model_name": args.model_name,
                        "dataset": args.datapath.split("/")[-1]
@@ -180,10 +185,10 @@ def main(args):
 
     print(f"\nDataset Statistics:\n- Training Data documents:\t{len(tr_data)}\t({Counter(tr_data.label)})\n- Validation Data documents:\t{len(va_data)}\t({Counter(va_data.label)})\n- Testing Data documents:\t{len(te_data)}\t({Counter(te_data.label)})\n")
 
-    tr_dataset = NewsDataset(tr_data)
-    va_dataset = NewsDataset(va_data)
-    te_dataset = NewsDataset(te_data)
-    te_dataset_other_gen = NewsDataset(te_data_other_gen)
+    tr_dataset = NewsDataset(tr_data, skip_nchars=args.skip_nchars)
+    va_dataset = NewsDataset(va_data, skip_nchars=args.skip_nchars)
+    te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
+    te_dataset_other_gen = NewsDataset(te_data_other_gen, skip_nchars=args.skip_nchars)
 
     # splits = {}
     # for (_data, _name) in [(tr_data, "tr"), (va_data, "val"), (te_data, "te")]:
@@ -225,7 +230,7 @@ def main(args):
         trainable_layers = [p_name for p_name, p in model.named_parameters() if p.requires_grad == True] 
         print(f"Trainable layers: {trainable_layers}")
 
-    output_folder = f"{args.model_name}" if not args.freeze_backbone else f"{args.model_name}_frozen" 
+    output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
@@ -278,10 +283,10 @@ def main(args):
     
     from pprint import pprint as pp
     print("\nTest Results:")
-    pp(test_results.metrics)
+    pp({k: round(v, 2) for k, v in test_results.metrics.items()})
 
     print("\nTest Other Generator Results:")
-    pp(test_results_other_generator.metrics)
+    pp({k: round(v, 2) for k, v in test_results_other_generator.metrics.items()})
 
     if args.wandb:
         wandb.finish()
@@ -295,6 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_length", type=int, default=256)
+    parser.add_argument("--skip_nchars", type=int, default=0)
     parser.add_argument("--nepochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--num_samples", type=int, default=100000)
