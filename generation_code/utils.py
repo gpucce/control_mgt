@@ -130,16 +130,41 @@ def get_random_prompt_xsum(m, informed):
 def get_random_prompt_xsum_anita(m, informed):
     raise NotImplementedError("Not implemented yet")
 
-SYSTEM_REGESTO_PROMPTS = [
-    "You are an expert philolohist who dedicated his life to the study of Latin language and has a deep expertise in the field of medieval manuscripts. You have dedicated several years of your life in learning how to write the \"regesto\" of texts in Latin."
-]
+SYSTEM_REGESTO_PROMPT = 'You are an expert in paleography and diplomatics who dedicated his life to the study of Latin language and has a deep expertise in the field of medieval charters. You have dedicated several years of your life in learning how to write the «regesto» of texts in Latin.'
 
-USER_REGESTO_PROMPTS = [
-    "Here are some examples of latin texts (TESTO ESTESO) with their corresponding regesto (REGESTO):",
-    "Given the the following text in Latin\n\nTESTO ESTESO:\n{testo_esteso}.\n\nPlease write a \"regesto\" for it."
-]
+FEW_SHOT_REGESTO_PROMPT = "Here are some examples of latin documents issued by the Pope Honorius III and Gregorius IX (TESTO ESTESO) with their corresponding regesto (REGESTO):"
 
-def get_regesto_prompt_with_example(testo_esteso, testi_esempio, regesti_esempio, n):
+USER_REGESTO_PROMPT = """Given the the following text in Latin:
+
+TESTO ESTESO:
+{testo_esteso}.
+
+Please write in Latin a «regesto» for it, containing:
+- The name of the author (i.e. the Pope)
+- the name of the recipient
+- an abstract of the content (with the object and the operative verb)
+- the date (calculated from the year of pontificate)
+- the place
+
+REGESTO:
+"""
+
+BACKTRANSLATION_USER_REGESTO_PROMPT = """Given the the following text in Latin:
+
+TESTO ESTESO:
+{testo_esteso}.
+
+Please first translate it to English and then write in Latin a «regesto» for it, containing:
+- The name of the author (i.e. the Pope);
+- the name of the recipient;
+- an abstract of the content (with the object and the operative verb);
+- the date (calculated from the year of pontificate);
+- the place;
+
+REGESTO:
+"""
+
+def get_regesto_prompt_with_example(testo_esteso, testi_esempio, regesti_esempio, n, command_prompt):
     assert len(testi_esempio) == len(regesti_esempio)
     rand_idxs = random.choices(range(len(testi_esempio)), k=n)
     while any([testi_esempio[i] == testo_esteso for i in rand_idxs]):
@@ -147,14 +172,21 @@ def get_regesto_prompt_with_example(testo_esteso, testi_esempio, regesti_esempio
     testi_esempio = [testi_esempio[i] for i in rand_idxs]
     regesti_esempio = [regesti_esempio[i] for i in rand_idxs]
     return (
-        USER_REGESTO_PROMPTS[0] + "\n" +
+        FEW_SHOT_REGESTO_PROMPT + "\n" +
         "\n".join([f"TESTO ESTESO ({i}):\n{testi_esempio[i]}\n\nREGESTO ({i}):\n{regesti_esempio[i]}"
          for i in range(n)]) + "\n" +
-        USER_REGESTO_PROMPTS[1].format(testo_esteso=testo_esteso))
+        command_prompt.format(testo_esteso=testo_esteso))
 
 def get_regesto_prompt(m, testi_estesi, regesti, n):
-    out = [{"role":"system", "content":random.choice(SYSTEM_REGESTO_PROMPTS)},]
+    out = [{"role":"system", "content":SYSTEM_REGESTO_PROMPT},]
     out.append({"role":"user", "content":get_regesto_prompt_with_example(
-        m, testi_estesi, regesti, n
+        m, testi_estesi, regesti, n, USER_REGESTO_PROMPT
+    )})
+    return out
+
+def get_backtranslation_regesto_prompt(m, testi_estesi, regesti, n):
+    out = [{"role":"system", "content":SYSTEM_REGESTO_PROMPT},]
+    out.append({"role":"user", "content":get_regesto_prompt_with_example(
+        m, testi_estesi, regesti, n, BACKTRANSLATION_USER_REGESTO_PROMPT
     )})
     return out
