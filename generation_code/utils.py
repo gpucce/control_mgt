@@ -1,4 +1,5 @@
 import random
+from itertools import product
 
 SYSTEM_PROMPTS_DICE=[
     "You are an Italian journalist writing for a national newspaper focusing on criminal events happening in the area surrounding Modena",
@@ -93,13 +94,30 @@ SYSTEM_PROMPTS_XSUM=[
     "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics, with a focus on Sports",
 ]
 
-USER_PROMPTS_XSUM=[
-    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}",
-]
+# USER_PROMPTS_XSUM=[
+#     # "Write a piece of news, that will appear in a national newspaper in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a local newspaper in Ireland, focus on the declaration of withnesses to the event, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a local newspaper in Wales, focus on the declaration of withnesses to the event, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a national newspaper, focus on the declaration of the police about the event, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a national newspaper, focus on the impact this news can have on the whole country, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a local newspaper in Scotland, focus on the impact this news can have on the whole country, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a a weekly magazine in England, focus on the impact this news can have on the whole country, in the UK and that has the following title:\n\n{m}",
+#     # "Write a piece of news, that will appear in a a weekly magazine in England, focus on the impact this news can have on the whole country, in the UK and that has the following title:\n\n{m}",
+# ]
 
-USER_PROMPTS_XSUM_INFORMED=[
-    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 500 words.",
-]
+# USER_PROMPTS_XSUM_INFORMED=[
+#     "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 500 words.",
+# ]
+
+XSUM_VENUES = ["local newspaper", "national newspaper", "national magazine", "international magazine", "weekly magazine", "opinion magazine", "international journal"]
+COUNTRY = ["Scotland", "Wales", "Ireland", "England", "Northern Ireland", "United Kingdom", "UK"]
+FOCUS = ["the whole country", "the town or city where it happened", "the world", "the local community", "the country", "Europe"]
+
+_USER_PROMPT_XSUM="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||"
+USER_PROMPTS_XSUM=[_USER_PROMPT_XSUM.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
+
+_USER_PROMPT_XSUM_INFORMED="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 1000 words."
+USER_PROMPTS_XSUM_INFORMED=[_USER_PROMPT_XSUM_INFORMED.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
 
 def get_random_prompt_xsum(m, informed):
     out = [{"role":"system", "content":random.choice(SYSTEM_PROMPTS_XSUM)},]
@@ -111,3 +129,32 @@ def get_random_prompt_xsum(m, informed):
 
 def get_random_prompt_xsum_anita(m, informed):
     raise NotImplementedError("Not implemented yet")
+
+SYSTEM_REGESTO_PROMPTS = [
+    "You are an expert philolohist who dedicated his life to the study of Latin language and has a deep expertise in the field of medieval manuscripts. You have dedicated several years of your life in learning how to write the \"regesto\" of texts in Latin."
+]
+
+USER_REGESTO_PROMPTS = [
+    "Here are some examples of latin texts (TESTO ESTESO) with their corresponding regesto (REGESTO):",
+    "Given the the following text in Latin\n\nTESTO ESTESO:\n{testo_esteso}.\n\nPlease write a \"regesto\" for it."
+]
+
+def get_regesto_prompt_with_example(testo_esteso, testi_esempio, regesti_esempio, n):
+    assert len(testi_esempio) == len(regesti_esempio)
+    rand_idxs = random.choices(range(len(testi_esempio)), k=n)
+    while any([testi_esempio[i] == testo_esteso for i in rand_idxs]):
+        rand_idxs = random.choices(range(len(testi_esempio)), k=n)
+    testi_esempio = [testi_esempio[i] for i in rand_idxs]
+    regesti_esempio = [regesti_esempio[i] for i in rand_idxs]
+    return (
+        USER_REGESTO_PROMPTS[0] + "\n" +
+        "\n".join([f"TESTO ESTESO ({i}):\n{testi_esempio[i]}\n\nREGESTO ({i}):\n{regesti_esempio[i]}"
+         for i in range(n)]) + "\n" +
+        USER_REGESTO_PROMPTS[1].format(testo_esteso=testo_esteso))
+
+def get_regesto_prompt(m, testi_estesi, regesti, n):
+    out = [{"role":"system", "content":random.choice(SYSTEM_REGESTO_PROMPTS)},]
+    out.append({"role":"user", "content":get_regesto_prompt_with_example(
+        m, testi_estesi, regesti, n
+    )})
+    return out
