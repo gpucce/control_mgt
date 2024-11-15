@@ -145,8 +145,6 @@ Please write in Latin a «regesto» for it, containing:
 - an abstract of the content (with the object and the operative verb)
 - the date (calculated from the year of pontificate)
 - the place
-
-REGESTO:
 """
 
 BACKTRANSLATION_USER_REGESTO_PROMPT = """Given the the following text in Latin:
@@ -160,8 +158,6 @@ Please first translate it to English and then write in Latin a «regesto» for i
 - an abstract of the content (with the object and the operative verb);
 - the date (calculated from the year of pontificate);
 - the place;
-
-REGESTO:
 """
 
 def get_regesto_prompt_with_example(testo_esteso, testi_esempio, regesti_esempio, n, command_prompt):

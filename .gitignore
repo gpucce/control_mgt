@@ -1,5 +1,6 @@
 *.jsonl
 conda_venv/
+*.key
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
