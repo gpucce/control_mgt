@@ -123,7 +123,7 @@ def postprocess_text(text):
 def main(args):
     model_name = "meta-llama/Llama-3.1-8B-Instruct"
 
-    data_path = "data/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed.jsonl"
+    data_path = "data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.jsonl"
     split_path = os.path.join("data/splits", f"llama-3.1-8b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json" if "llama-3.1-8b" in model_name.lower() else f"llama-3.1-70b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json")
     df = pd.read_json(data_path, lines=True)
     selected = json.load(open(split_path))
@@ -158,7 +158,7 @@ def main(args):
 
     with torch.no_grad():
         for i, (prompt, prompt_str) in enumerate(dataset):
-            generated_ids = model.generate(**prompt.to(DEVICE), max_length=512, pad_token_id=tokenizer.eos_token_id, temperature=0.8)
+            generated_ids = model.generate(**prompt.to(DEVICE), max_length=512, pad_token_id=tokenizer.eos_token_id, temperature=args.temperature)
             generated_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
             generated_text = postprocess_text(generated_text.split("assistant\n\n")[-1])
 
