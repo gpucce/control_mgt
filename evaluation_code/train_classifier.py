@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig, AutoModel
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig, AutoModel, FlaxAutoModelForSequenceClassification
 from transformers import TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import PeftModel
 
@@ -109,6 +109,10 @@ def get_model(model_name, device="cuda"):
         # Loading supervised model. This loads the trained LoRA weights on top of MNTP model. Hence the final weights are -- Base model + MNTP (LoRA) + supervised (LoRA).
         model = PeftModel.from_pretrained(model, model_id)
         model = LLM2VecForSequenceClassification(base_model=model, num_labels=2, tokenizer=tokenizer).to(device)
+    elif "checkpoints-classifier" in model_name:
+        model_id = model_name
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
     else:
         raise NotImplementedError(f"model: {model_name} not implemented yet!")
     print(f"- Loaded model: {model_id}")
@@ -139,6 +143,10 @@ def create_dataset(df_data):
 
 
 def main(args):
+    if args.fast_eval_only:
+        fast_eval_only(args)
+        exit()
+
     data = pd.read_json(args.datapath, lines=True)
     
     selected_fname = (args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json").replace("_temp0.8", "")
@@ -290,12 +298,77 @@ def main(args):
 
     if args.wandb:
         wandb.finish()
+    
+
+def fast_eval_only(args):
+    data = pd.read_json(args.datapath, lines=True)
+    selected_fname = "data/splits/llama-3.1-8b-instruct-hf_xsum_informed.split.2500.json"    # TODO hard-coded
+    selected = json.load(open(selected_fname))
+
+    te_data = data[data["id"].isin(selected["te"])]
+    te_data = create_dataset(te_data)
+
+    te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
+    print(f"\nDataset Statistics:\n- Testing Data documents:\t{len(te_data)}\t({Counter(te_data.label)})\n")
+    
+    model, tokenizer = get_model(model_name=args.model_name, device="cuda")
+
+    output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
+    trainer_args = TrainingArguments(
+        output_dir=f"checkpoints-classifier/{output_folder}",
+        bf16=True,
+        learning_rate=args.lr,
+        num_train_epochs=args.nepochs,
+        logging_steps=10,
+        per_device_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
+        lr_scheduler_type="cosine",
+        warmup_ratio=0.1,
+        save_strategy="steps",
+        eval_strategy="steps",
+        eval_steps=25,
+        save_steps=25,
+        weight_decay=0.0,
+        run_name=f"{args.model_name}" if not args.freeze_backbone else f"{args.model_name}.frozen",
+        metric_for_best_model="f1",
+        greater_is_better=True,
+        report_to="wandb" if args.wandb else "none",
+        load_best_model_at_end=True,
+        remove_unused_columns=False,
+        save_total_limit=1,
+        do_train=False,
+    )
+
+    if "llm2vec-" in args.model_name:
+        collate_fn = LLM2VecCustomCollate(tokenizer, max_length=args.max_length, doc_max_length=412)
+    else:
+        collate_fn = CustomCollate(tokenizer, max_length=args.max_length)
+
+    trainer = Trainer(
+        model=model,
+        tokenizer=tokenizer,
+        data_collator=collate_fn,
+        compute_metrics=custom_compute_metrics,
+        args=trainer_args,
+    )
+
+
+    test_results = trainer.predict(test_dataset=te_dataset)
+    
+    from pprint import pprint as pp
+    print("\nTest Results:")
+    pp({k: round(v, 2) for k, v in test_results.metrics.items()})
+
+    return
+
+
+
+    
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--model_name", type=str, required=False,
-                        choices=["roberta", "deberta", "llm2vec-llama", "llm2vec-mistral"], default="deberta")
+    parser.add_argument("--model_name", type=str, required=False, default="deberta")
     parser.add_argument("--datapath", type=str, required=False, default="data/generation_output_llama-3.1-70b-instruct-hf_xsum_informed.jsonl")
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--batch_size", type=int, default=128)
@@ -306,6 +379,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_samples", type=int, default=100000)
     parser.add_argument("--patience", type=int, default=None)
     parser.add_argument("--freeze_backbone", action="store_true")
+    parser.add_argument("--fast_eval_only", action="store_true")
     parser.add_argument("--wandb", action="store_true")
     args = parser.parse_args()
     main(args)
