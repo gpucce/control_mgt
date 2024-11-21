@@ -158,8 +158,9 @@ if __name__ == "__main__":
     import os
 
     experiments = {
-        "format": get_regesto_prompt,
-        "backtranslate": get_backtranslation_regesto_prompt,}
+        "backtranslate": get_backtranslation_regesto_prompt,
+        "format": get_regesto_prompt,}
+
     args = parse_args()
 
     if args.model_name != "gpt-4o":

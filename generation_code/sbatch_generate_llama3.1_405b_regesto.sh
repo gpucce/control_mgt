@@ -63,5 +63,5 @@ done
 
 echo "STARTING python command"
 
-python /leonardo_scratch/large/userexternal/gpuccett/Repos/control_mgt/generation_code/generate_ita_regesti.py \
+python /leonardo_scratch/large/userexternal/gpuccett/Repos/MGH_annotation/generation_code/generate_ita_regesti.py \
     --model_name llama-3.1-405b-instruct-hf
