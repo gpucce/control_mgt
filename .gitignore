@@ -1,6 +1,5 @@
 *.jsonl
 conda_venv/
-*.key
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -170,4 +169,3 @@ wandb
 .vscode
 TODO.md
 notes.md
-guided_gen.poc.ipynb
