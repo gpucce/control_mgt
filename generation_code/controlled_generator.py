@@ -1,3 +1,8 @@
+from tqdm import tqdm
+import warnings
+# warnings.simplefilter(action='ignore', category=FutureWarning)
+# warnings.simplefilter(action='ignore')
+
 import os
 import json
 from torch.utils.data import DataLoader, Dataset
@@ -8,6 +13,8 @@ import textwrap
 from transformers import LlamaForCausalLM, AutoTokenizer
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from utils import get_random_prompt_xsum
+from torch.utils.data import default_collate
+from transformers import BatchEncoding
 
 import torch
 
@@ -16,7 +23,7 @@ DEVICE = "cuda:2"
 
 class ControlledModel(LlamaForCausalLM):
 
-    def __init__(self, config,):
+    def __init__(self, config):
         super().__init__(config)
         self.logits_mask = None
     
@@ -74,15 +81,25 @@ class GenerationDataset(Dataset):
         self.data = data
         self.prompt_fn = prompt_fn
         self.tokenizer = tokenizer
+        self.max_length = 512
 
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
-        title = self.data[idx]
+        _data = self.data.iloc[idx]
+        title = _data.title
+        doc_id = _data.id
+        real_article = _data.real_article
         prompt = self.prompt_fn(title, informed=True)
         prompt_str = self.tokenizer.apply_chat_template(prompt, add_generation_prompt=True, tokenize=False)
-        return self.tokenizer(prompt_str, return_tensors="pt"), prompt_str
+        return {
+            "model_inputs": self.tokenizer(prompt_str, max_length=self.max_length, padding="max_length", return_tensors="pt"),
+            "real_article": real_article,
+            "prompt_str": prompt_str,
+            "title": title,
+            "doc_id": doc_id
+            }
 
 
 def get_tokens_data(data: list, tokenizer):
@@ -120,6 +137,31 @@ def postprocess_text(text):
     
     return text
 
+
+class CustomCollate:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+    
+    def __call__(self, data):
+        # batch = [elem["model_inputs"] for elem in data]
+        # prompts = [elem["prompt_str"] for elem in data]
+        # titles = [elem["titles"] for elem in data]
+        # doc_ids = [elem["doc_id"] for elem in data]
+
+        # input_ids = torch.vstack([b["input_ids"] for b in batch])
+        # attention_masks = torch.vstack([b["attention_mask"] for b in batch])
+        # return BatchEncoding({"input_ids": input_ids, "attention_mask": attention_masks}), prompts, titles, doc_ids
+        
+        batch, real_article, prompts, titles, doc_ids = zip(
+        *[(elem["model_inputs"], elem["real_article"], elem["prompt_str"], elem["title"], elem["doc_id"]) for elem in data]
+        )
+    
+        # Stack tensors for input_ids and attention_mask
+        inputs = {key: torch.vstack([b[key] for b in batch]) for key in ["input_ids", "attention_mask"]}
+        return BatchEncoding(inputs), list(real_article), list(prompts), list(titles), list(doc_ids)
+    
+
+
 def main(args):
     model_name = "meta-llama/Llama-3.1-8B-Instruct"
 
@@ -130,53 +172,50 @@ def main(args):
 
     outfile = f"generation_output_{model_name.split('/')[-1].lower()}_xsum_temp{args.temperature}.controlled{str(args.controlling_docs)}.testonly.jsonl"
 
-    df_te = df[df["id"].isin(selected["te"])]
+    # df_te = df[df["id"].isin(selected["te"])]
     df_tr = df[df["id"].isin(selected["tr"])]
 
-    print(f"-  number of documents in the test set split {args.num_samples}: {len(df_te)}")
+    # print(f"-  number of documents in the test set split {args.num_samples}: {len(df_te)}")
 
     # we sample the controlling documents from the training split
     real_articles = df_tr.real_article.sample(n=args.controlling_docs, random_state=42).to_list()
 
-    # synth_articles = df_te.generated_text.sample(n=args.controlling_docs, random_state=42).to_list()
-    # titles = df_te.title.to_list()
-    # if args.num_docs is not None:
-    #     titles = titles[:args.num_docs]
-
     model = ControlledModel.from_pretrained(model_name).to(DEVICE)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
     
-    # we generate synthetic documents via the controlled models ONLY for news in the test set (in the discriminator trainign stage)
-    dataset = GenerationDataset(df_te.title.to_list(), get_random_prompt_xsum, tokenizer)
+    # dataset = GenerationDataset(df_te.title.to_list(), get_random_prompt_xsum, tokenizer)
+    dataset = GenerationDataset(df, get_random_prompt_xsum, tokenizer)
 
     logits_mask, selected_newhead_toks = get_logits_mask(tokenizer, real_articles, vocab_size=model.vocab_size)
     model.set_logits_mask(logits_mask)
 
-    # dataloader = DataLoader(dataset=dataset, batch_size=1)  # TODO we're not doing truncation so batch size atm is limited to 1
+    dataloader = DataLoader(dataset=dataset, batch_size=args.batch, collate_fn=CustomCollate(tokenizer))
 
     print(model.generation_config)
 
     with torch.no_grad():
-        for i, (prompt, prompt_str) in enumerate(dataset):
-            generated_ids = model.generate(**prompt.to(DEVICE), max_length=512, pad_token_id=tokenizer.eos_token_id, temperature=args.temperature)
-            generated_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-            generated_text = postprocess_text(generated_text.split("assistant\n\n")[-1])
+        for batch, real_articles, prompts, titles, doc_ids in tqdm(dataloader):
+            generated_ids = model.generate(**batch.to(DEVICE), max_new_tokens=512, pad_token_id=tokenizer.eos_token_id, temperature=args.temperature)
+            generated_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+            generated_text = [postprocess_text(t.split("assistant\n\n")[-1]) for t in generated_text]
 
-            print(f"\n({i}) Title: {df_te.iloc[i].title}")
-            print(textwrap.fill(generated_text, width=75))
+            # print(f"\n({i}) Title: {df_te.iloc[i].title}")
+            # print(textwrap.fill(generated_text, width=75))
 
-            with open(outfile, "a") as jf:
-                # atm these lines are only working for BATCH_SIZE=1  (df_te.iloc[i] ...)
-                to_dump = {
-                    "prompt": prompt_str,
-                    "generated_text": generated_text,
-                    "real_article": df_te.iloc[i].real_article,
-                    "id": str(df_te.iloc[i]["id"]),
-                    "title": df_te.iloc[i].title,
-                    "source": "xsum" 
-                }
+            for t, real_article, prompt, title, doc_id in zip(generated_text, real_articles, prompts, titles, doc_ids):
+                with open(outfile, "a") as jf:
+                    to_dump = {
+                        "prompt": prompt,
+                        "generated_text": t,
+                        "real_article": real_article,
+                        "id": str(doc_id),
+                        "title": title,
+                        "source": "xsum" 
+                    }
 
-                jf.write(json.dumps(to_dump) + "\n")
+                    jf.write(json.dumps(to_dump) + "\n")
 
 
 if __name__ == "__main__":
@@ -184,7 +223,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--controlling_docs", type=int, default=250)
     parser.add_argument("--temperature", default=0.6, type=float)
+    parser.add_argument("--max_length", type=int, default=512)
+    parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--num_samples", type=int, default=2500)
+    parser.add_argument("--batch", default=4, type=int)
     args = parser.parse_args()
     main(args)
 
