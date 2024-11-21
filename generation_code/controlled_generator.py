@@ -18,7 +18,7 @@ from transformers import BatchEncoding
 
 import torch
 
-DEVICE = "cuda:2"
+DEVICE = "cuda"
 
 
 class ControlledModel(LlamaForCausalLM):
@@ -193,7 +193,7 @@ def main(args):
 
     dataloader = DataLoader(dataset=dataset, batch_size=args.batch, collate_fn=CustomCollate(tokenizer))
 
-    print(model.generation_config)
+    # print(model.generation_config)
 
     with torch.no_grad():
         for batch, real_articles, prompts, titles, doc_ids in tqdm(dataloader):
