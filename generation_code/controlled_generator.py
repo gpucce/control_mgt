@@ -1,3 +1,4 @@
+# pylint: disable=E1101, E0606
 from tqdm import tqdm
 import warnings
 # warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -8,7 +9,6 @@ import json
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import re
-import textwrap
 
 from transformers import LlamaForCausalLM, AutoTokenizer
 from transformers.modeling_outputs import CausalLMOutputWithPast
@@ -17,8 +17,6 @@ from torch.utils.data import default_collate
 from transformers import BatchEncoding
 
 import torch
-
-DEVICE = "cuda"
 
 
 class ControlledModel(LlamaForCausalLM):
@@ -164,6 +162,7 @@ class CustomCollate:
 
 def main(args):
     model_name = "meta-llama/Llama-3.1-8B-Instruct"
+    # model_name = "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-3.1-8b-instruct-hf"
 
     data_path = "data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.jsonl"
     split_path = os.path.join("data/splits", f"llama-3.1-8b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json" if "llama-3.1-8b" in model_name.lower() else f"llama-3.1-70b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json")
@@ -171,6 +170,8 @@ def main(args):
     selected = json.load(open(split_path))
 
     outfile = f"generation_output_{model_name.split('/')[-1].lower()}_xsum_temp{args.temperature}.controlled{str(args.controlling_docs)}.testonly.jsonl"
+    if args.n_ranks > 1:
+        outfile = outfile.replace(".jsonl", f"_rank{args.rank}.jsonl")
 
     # df_te = df[df["id"].isin(selected["te"])]
     df_tr = df[df["id"].isin(selected["tr"])]
@@ -180,11 +181,14 @@ def main(args):
     # we sample the controlling documents from the training split
     real_articles = df_tr.real_article.sample(n=args.controlling_docs, random_state=42).to_list()
 
-    model = ControlledModel.from_pretrained(model_name).to(DEVICE)
+    model = ControlledModel.from_pretrained(
+        model_name, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16).to(DEVICE)
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
-    
+
+    df = df.iloc[(df.shape[0] // args.n_ranks) * args.rank : (df.shape[0] // args.n_ranks) * (args.rank + 1), : ]
     # dataset = GenerationDataset(df_te.title.to_list(), get_random_prompt_xsum, tokenizer)
     dataset = GenerationDataset(df, get_random_prompt_xsum, tokenizer)
 
@@ -227,7 +231,32 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--num_samples", type=int, default=2500)
     parser.add_argument("--batch", default=4, type=int)
+    parser.add_argument("--n_ranks", type=int, default=None)
+    parser.add_argument("--rank", default=None, type=int)
     args = parser.parse_args()
+
+    if args.rank is None:
+        int_rank = int(os.environ.get("SLURM_LOCALID", 0))
+    else:
+        print('Since --rank is set, we will use the provided rank and not the SLURM_LOCALID')
+        int_rank = int(args.rank)
+
+    if args.n_ranks is None:
+        int_n_ranks = int(os.environ.get("SLURM_NTASKS", 1))
+    else:
+        print('Since --n_ranks is set, we will use the provided n_ranks and not the SLURM_NTASKS')
+        int_n_ranks = int(args.n_ranks)
+
+    args.rank = int_rank
+    args.n_ranks = int_n_ranks
+
+    print("Local rank:", int_rank)
+    print("N ranks:", int_n_ranks)
+
+    if int_n_ranks == 1:
+        DEVICE = f"cuda:{int_rank}"
+    else:
+        DEVICE = "cuda:0"
+
+
     main(args)
-
-
