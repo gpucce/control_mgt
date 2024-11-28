@@ -247,7 +247,7 @@ def main(args):
         trainable_layers = [p_name for p_name, p in model.named_parameters() if p.requires_grad == True] 
         print(f"Trainable layers: {trainable_layers}")
 
-    output_folder = f"{args.model_name}_split{args.num_samples}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
+    output_folder = f"{args.model_name}_split{args.num_samples}_skip{args.skip_nchars}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
@@ -328,10 +328,10 @@ def fast_eval_only(args):
     
     model, tokenizer = get_model(model_name=args.model_name, device="cuda")
 
-    preds_fname = get_preds_fname(args.model_name, args.datapath, args.max_length, args.only_synth)
+    preds_fname = get_preds_fname(args.model_name, args.datapath, args.max_length, args.only_synth, args.skip_nchars)
     output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
     trainer_args = TrainingArguments(
-        output_dir=f"checkpoints-classifier/{output_folder}",
+        output_dir=f"eval_logs/{output_folder}",
         bf16=True,
         learning_rate=args.lr,
         num_train_epochs=args.nepochs,
@@ -381,20 +381,27 @@ def fast_eval_only(args):
     df_pred["pred"] = preds
     df_pred["label"] = test_results.label_ids
 
-    df_pred.to_csv(preds_fname, index=False)
+    if not args.nosave:
+        df_pred.to_csv(preds_fname, index=False)
     
     from pprint import pprint as pp
     print("\nTest Results:")
     pp({k: round(v, 4) for k, v in test_results.metrics.items()})
 
+    import shutil
+    shutil.rmtree("eval_logs")   # remove eval_logs dir created by trainer (it is an empty dir since we're only doing eval in here...)
+
     return
 
 
-def get_preds_fname(model_name, datapath, max_length, only_synth, basedir="preds-classifier"):
+def get_preds_fname(model_name, datapath, max_length, only_synth, skip_nchars, basedir="preds-classifier"):
     if "checkpoints-classifier" in model_name:
         _modelname = model_name.split("/")
         _datapath = datapath.split("/")
-        preds_fname = os.path.join(basedir, _modelname[1], _datapath[1])
+        if skip_nchars != 0:
+            preds_fname = os.path.join(basedir, _modelname[1], f"{_datapath[1]}_skip{skip_nchars}")
+        else:
+            preds_fname = os.path.join(basedir, _modelname[1], _datapath[1])
         os.makedirs(preds_fname, exist_ok=True)
         preds_fname = os.path.join(preds_fname, f"preds_{_modelname[-1]}.{_datapath[-1].replace('.zip', '')}.{max_length}{'.only_synth' if only_synth else ''}.csv")
     else:
@@ -419,5 +426,6 @@ if __name__ == "__main__":
     parser.add_argument("--wandb", action="store_true")
     parser.add_argument("--test_othergen", action="store_true", help="test on other generator too")     # TODO
     parser.add_argument("--only_synth", action="store_true", help="evaluate only on synthetic texts")
+    parser.add_argument("--nosave", action="store_true")
     args = parser.parse_args()
     main(args)
