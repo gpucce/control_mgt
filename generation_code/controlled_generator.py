@@ -164,8 +164,8 @@ def main(args):
     model_name = "meta-llama/Llama-3.1-8B-Instruct"
     # model_name = "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-3.1-8b-instruct-hf"
 
-    data_path = "data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.jsonl"
-    split_path = os.path.join("data/splits", f"llama-3.1-8b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json" if "llama-3.1-8b" in model_name.lower() else f"llama-3.1-70b-instruct-hf_xsum_informed.split.{str(args.num_samples)}.json")
+    data_path = "data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.zip"
+    split_path = "data/splits/split." + str(args.num_samples) + ".json"
     df = pd.read_json(data_path, lines=True)
     selected = json.load(open(split_path))
 
