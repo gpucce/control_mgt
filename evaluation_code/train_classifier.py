@@ -1,3 +1,8 @@
+import warnings
+warnings.simplefilter(action='ignore')
+print("- NB: suppressing warnings!")
+
+import os
 import wandb
 import json
 import pandas as pd
@@ -128,7 +133,7 @@ def compute_tokenized_lengths(data, tokenizer):
     return (r_mean, r_std, r_max, r_min), (f_mean, f_std, f_max, f_min)
     
 
-def create_dataset(df_data):
+def create_dataset(df_data, only_synth=False):
     df_real         = df_data[["real_article", "id", "source"]].rename(columns={"real_article": "text"})
     # df_real = df_real.iloc[:len(df_real) // 2, :]
     df_generated    = df_data[["generated_text", "id", "source"]].rename(columns={"generated_text": "text"})
@@ -137,31 +142,34 @@ def create_dataset(df_data):
     df_real["label"] = 0
     df_generated["label"] = 1
 
-    df_data = pd.concat([df_real, df_generated], ignore_index=True)
+    if not only_synth:
+        df_data = pd.concat([df_real, df_generated], ignore_index=True)
+    else:
+        df_data = df_generated
 
     return df_data
 
 
 def main(args):
-    if args.fast_eval_only:
+    if args.eval_only:
         fast_eval_only(args)
         exit()
 
     data = pd.read_json(args.datapath, lines=True)
-    
-    selected_fname = (args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json").replace("_temp0.8", "")
-    selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
-    datapath_othergen = args.datapath.replace("llama-3.1-70b", "llama-3.1-8b") if "llama-3.1-70b" in args.datapath else args.datapath.replace("llama-3.1-8b", "llama-3.1-70b")
-    data_other_gen = pd.read_json(datapath_othergen, lines=True)
-
+    selected_fname = "data/splits/split." + str(args.num_samples) + ".json"
     selected = json.load(open(selected_fname))
-    selected_other_gen = json.load(open(selected_othergen_fname))
 
     tr_data = data[data["id"].isin(selected["tr"])]
     va_data = data[data["id"].isin(selected["val"])]
     te_data = data[data["id"].isin(selected["te"])]
 
-    te_data_other_gen = data_other_gen[data_other_gen["id"].isin(selected_other_gen["te"])]
+    if args.test_othergen:
+        selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
+        datapath_othergen = args.datapath.replace("llama-3.1-70b", "llama-3.1-8b") if "llama-3.1-70b" in args.datapath else args.datapath.replace("llama-3.1-8b", "llama-3.1-70b")
+        data_other_gen = pd.read_json(datapath_othergen, lines=True)
+        selected_other_gen = json.load(open(selected_othergen_fname))
+        te_data_other_gen = data_other_gen[data_other_gen["id"].isin(selected_other_gen["te"])]
+        te_data_other_gen = create_dataset(te_data_other_gen)
 
     # if args.num_samples is not None:
     #     selected_fname = args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits") + f".split.{args.num_samples}.json"
@@ -176,7 +184,6 @@ def main(args):
     tr_data = create_dataset(tr_data)
     va_data = create_dataset(va_data)
     te_data = create_dataset(te_data)
-    te_data_other_gen = create_dataset(te_data_other_gen)
 
     if args.wandb:
         import wandb
@@ -196,7 +203,9 @@ def main(args):
     tr_dataset = NewsDataset(tr_data, skip_nchars=args.skip_nchars)
     va_dataset = NewsDataset(va_data, skip_nchars=args.skip_nchars)
     te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
-    te_dataset_other_gen = NewsDataset(te_data_other_gen, skip_nchars=args.skip_nchars)
+    
+    if args.test_othergen:
+        te_dataset_other_gen = NewsDataset(te_data_other_gen, skip_nchars=args.skip_nchars)
 
     # splits = {}
     # for (_data, _name) in [(tr_data, "tr"), (va_data, "val"), (te_data, "te")]:
@@ -238,7 +247,7 @@ def main(args):
         trainable_layers = [p_name for p_name, p in model.named_parameters() if p.requires_grad == True] 
         print(f"Trainable layers: {trainable_layers}")
 
-    output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
+    output_folder = f"{args.model_name}_split{args.num_samples}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
@@ -287,32 +296,39 @@ def main(args):
     trainer.train()
 
     test_results = trainer.predict(test_dataset=te_dataset)
-    test_results_other_generator = trainer.predict(test_dataset=te_dataset_other_gen, metric_key_prefix="test_othergen")
+    
+    if args.test_othergen:
+        test_results_other_generator = trainer.predict(test_dataset=te_dataset_other_gen, metric_key_prefix="test_othergen")
     
     from pprint import pprint as pp
     print("\nTest Results:")
-    pp({k: round(v, 2) for k, v in test_results.metrics.items()})
+    pp({k: round(v, 4) for k, v in test_results.metrics.items()})
 
-    print("\nTest Other Generator Results:")
-    pp({k: round(v, 2) for k, v in test_results_other_generator.metrics.items()})
+    if args.test_othergen:
+        print("\nTest Other Generator Results:")
+        pp({k: round(v, 4) for k, v in test_results_other_generator.metrics.items()})
 
     if args.wandb:
         wandb.finish()
     
 
 def fast_eval_only(args):
+    from transformers.utils.logging import disable_progress_bar
+    disable_progress_bar()
+
     data = pd.read_json(args.datapath, lines=True)
-    selected_fname = "data/splits/llama-3.1-8b-instruct-hf_xsum_informed.split.2500.json"    # TODO hard-coded
+    selected_fname = "data/splits/split." + str(args.num_samples) + ".json"
     selected = json.load(open(selected_fname))
 
     te_data = data[data["id"].isin(selected["te"])]
-    te_data = create_dataset(te_data)
+    te_data = create_dataset(te_data, only_synth=args.only_synth)
 
     te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
     print(f"\nDataset Statistics:\n- Testing Data documents:\t{len(te_data)}\t({Counter(te_data.label)})\n")
     
     model, tokenizer = get_model(model_name=args.model_name, device="cuda")
 
+    preds_fname = get_preds_fname(args.model_name, args.datapath, args.max_length, args.only_synth)
     output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
@@ -354,22 +370,42 @@ def fast_eval_only(args):
 
 
     test_results = trainer.predict(test_dataset=te_dataset)
+
+    preds = test_results.predictions.argmax(axis=1)
+
+    df_pred = pd.DataFrame(columns=["id", "pred", "label"])
+    if args.only_synth:
+        df_pred["id"] = selected["te"]
+    else:
+        df_pred["id"] = selected["te"] * 2
+    df_pred["pred"] = preds
+    df_pred["label"] = test_results.label_ids
+
+    df_pred.to_csv(preds_fname, index=False)
     
     from pprint import pprint as pp
     print("\nTest Results:")
-    pp({k: round(v, 2) for k, v in test_results.metrics.items()})
+    pp({k: round(v, 4) for k, v in test_results.metrics.items()})
 
     return
 
 
-
-    
+def get_preds_fname(model_name, datapath, max_length, only_synth, basedir="preds-classifier"):
+    if "checkpoints-classifier" in model_name:
+        _modelname = model_name.split("/")
+        _datapath = datapath.split("/")
+        preds_fname = os.path.join(basedir, _modelname[1], _datapath[1])
+        os.makedirs(preds_fname, exist_ok=True)
+        preds_fname = os.path.join(preds_fname, f"preds_{_modelname[-1]}.{_datapath[-1].replace('.zip', '')}.{max_length}{'.only_synth' if only_synth else ''}.csv")
+    else:
+        raise NotImplementedError
+    return preds_fname 
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--model_name", type=str, required=False, default="deberta")
-    parser.add_argument("--datapath", type=str, required=False, default="data/generation_output_llama-3.1-70b-instruct-hf_xsum_informed.jsonl")
+    parser.add_argument("--datapath", type=str, required=False, default="data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.zip")
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_length", type=int, default=256)
@@ -379,7 +415,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_samples", type=int, default=100000)
     parser.add_argument("--patience", type=int, default=None)
     parser.add_argument("--freeze_backbone", action="store_true")
-    parser.add_argument("--fast_eval_only", action="store_true")
+    parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--wandb", action="store_true")
+    parser.add_argument("--test_othergen", action="store_true", help="test on other generator too")     # TODO
+    parser.add_argument("--only_synth", action="store_true", help="evaluate only on synthetic texts")
     args = parser.parse_args()
     main(args)
