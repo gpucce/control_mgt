@@ -173,3 +173,4 @@ guided_gen.poc.ipynb
 explore_preds.ipynb
 etc
 *.sh
+*.ipynb
