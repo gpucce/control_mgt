@@ -105,10 +105,8 @@ if __name__ == "__main__":
 
     # Loop through the features and get DataFrames
     for index, feature in enumerate(top_10_index):
-        df = get_top_examples(originals, synth, feature, 10)
+        df = get_top_examples(originals, synth, feature, 100)
         dfs.append(df)  # Append the DataFrame to the list
-        if index == 2:
-            break
 
     # Concatenate all DataFrames in the list into a single DataFrame
     final_df = pd.concat(dfs, ignore_index=True)
