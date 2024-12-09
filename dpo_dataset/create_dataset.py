@@ -113,5 +113,5 @@ if __name__ == "__main__":
     shuffled_df = final_df.sample(frac=1, random_state=42).reset_index(drop=True)
     final_df = shuffled_df.drop_duplicates(subset='identifier', keep='first')
 
-    print(shuffled_df)
-    shuffled_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset.csv")
+    print(final_df)
+    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition.csv")
