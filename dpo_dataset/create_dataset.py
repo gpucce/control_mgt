@@ -11,16 +11,16 @@ import matplotlib.pyplot as plt
 import sys
 
 
-def load_data(filename, feat_filter='all'):
+def load_data(filename, feat_filter_path=None):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         data = json.load(f)
     split = filename.split("/")[-1].split("_")[0]
     feature_labels = data["features"]
 
-    if feat_filter == "all":
+    if feat_filter_path is None:
         features_to_remove = []
-    elif feat_filter == "filter":
-        with open("TO_REMOVE.txt") as f:
+    else:
+        with open(feat_filter_path) as f:
             features_to_remove = f.read().splitlines()
 
     indexes_to_remove = [feature_labels.index(i) for i in features_to_remove]
@@ -39,9 +39,9 @@ def __f_importances(coef, names, title, top):
 
 
 def train_model_and_get_top_feature(path, filter='all'):
-    X_train, y_train, feature_labels = load_data(f"{path}/train_data.json.gz", feat_filter=filter)
-    X_val, y_val, feature_labels = load_data(f"{path}/val_data.json.gz", feat_filter=filter)
-    # X_test, y_test, feature_labels = load_data(f"{path}/test_data.json.gz", feat_filter=filter)
+    X_train, y_train, feature_labels = load_data(f"{path}/train_data.json.gz", feat_filter_path=filter)
+    X_val, y_val, feature_labels = load_data(f"{path}/val_data.json.gz", feat_filter_path=filter)
+    # X_test, y_test, feature_labels = load_data(f"{path}/test_data.json.gz", feat_filter_path=filter)
 
     model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
 
@@ -55,19 +55,33 @@ def train_model_and_get_top_feature(path, filter='all'):
 
     return model, top_10_index, feature_labels
 
+def __get_true_id(ex):
+    return ex.split(".")[0]
 
-def get_examples(originals, synth, feature, max_number_examples):
-    max_abs_difference = 0
-    max_abs_difference_index = 0
-    raw_difference = 0
+
+def get_top_examples(originals, synth, feature, max_number_examples):
+    # Create a DataFrame to store the differences and identifiers
+    differences = []
+
     for index, row in originals.iterrows():
-        if abs(originals.iloc[index][feature] - synth.iloc[index][feature]) > max_abs_difference:
-            max_abs_difference = abs(originals.iloc[index][feature] - synth.iloc[index][feature])
-            max_abs_difference_index = originals.iloc[index]['identifier']
-            raw_difference = originals.iloc[index][feature] - synth.iloc[index][feature]
-    print(f"Feature {feature}: {max_abs_difference}")
-    print(raw_difference)
-    return max_abs_difference_index
+        difference = abs(originals.iloc[index][feature] - synth.iloc[index][feature])
+        raw_difference = originals.iloc[index][feature] - synth.iloc[index][feature]
+        identifier = originals.iloc[index]['identifier']
+        differences.append((identifier, difference, raw_difference))
+
+    # Convert to a DataFrame for sorting
+    differences_df = pd.DataFrame(differences, columns=['identifier', 'abs_difference', 'raw_difference'])
+
+    # Sort by absolute difference in descending order
+    top_differences = differences_df.sort_values(by='abs_difference', ascending=False).head(max_number_examples)
+    top_differences['identifier'] = top_differences['identifier'].apply(__get_true_id)
+
+    print(f"Top {max_number_examples} differences for feature '{feature}':")
+    top_differences['reason'] = feature
+    print(top_differences)
+
+    return top_differences
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -79,11 +93,27 @@ if __name__ == "__main__":
 
 
     model, top_10_index, feature_labels = train_model_and_get_top_feature(args.profiling_data_path,
-                                                                          filter="all" if not args.feature_filter
-                                                                          else "filter")
+                                                                          filter=None if not args.feature_filter
+                                                                          else "profiling_results/TO_REMOVE.txt")
+    print(top_10_index)
+
     originals = pd.read_csv(f"data/profiling_data/xsum_original.zip", compression="zip", sep="\t")
     synth = pd.read_csv(f"data/profiling_data/generations_8b_1_iter.zip", compression="zip", sep="\t")
-    for feature in top_10_index:
-        print(f"{feature} index: {get_examples(originals, synth, feature, 10)}")
+    print(originals)
+    print(synth)
+    dfs = []
 
-    print(top_10_index)
+    # Loop through the features and get DataFrames
+    for index, feature in enumerate(top_10_index):
+        df = get_top_examples(originals, synth, feature, 10)
+        dfs.append(df)  # Append the DataFrame to the list
+        if index == 2:
+            break
+
+    # Concatenate all DataFrames in the list into a single DataFrame
+    final_df = pd.concat(dfs, ignore_index=True)
+    shuffled_df = final_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    final_df = shuffled_df.drop_duplicates(subset='identifier', keep='first')
+
+    print(shuffled_df)
+    shuffled_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset.csv")
