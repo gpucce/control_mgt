@@ -59,15 +59,16 @@ def __get_true_id(ex):
     return ex.split(".")[0]
 
 
-def get_top_examples(originals, synth, feature, max_number_examples):
+def get_top_examples(originals, synth, feature, max_number_examples, training_splits):
     # Create a DataFrame to store the differences and identifiers
     differences = []
 
     for index, row in originals.iterrows():
-        difference = abs(originals.iloc[index][feature] - synth.iloc[index][feature])
-        raw_difference = originals.iloc[index][feature] - synth.iloc[index][feature]
-        identifier = originals.iloc[index]['identifier']
-        differences.append((identifier, difference, raw_difference))
+        if row['identifier'] in training_splits:
+            difference = abs(originals.iloc[index][feature] - synth.iloc[index][feature])
+            raw_difference = originals.iloc[index][feature] - synth.iloc[index][feature]
+            identifier = originals.iloc[index]['identifier']
+            differences.append((identifier, difference, raw_difference))
 
     # Convert to a DataFrame for sorting
     differences_df = pd.DataFrame(differences, columns=['identifier', 'abs_difference', 'raw_difference'])
@@ -91,6 +92,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    splits_path = "data/data_2024_11_08/splits/llama-3.1-8b-instruct-hf_xsum_informed.split.100000.json"
+    with open(splits_path, "r") as input_splits:
+        splits = json.loads(input_splits.read())
+        
+    training_splits = splits['tr']
+    del splits
 
     model, top_10_index, feature_labels = train_model_and_get_top_feature(args.profiling_data_path,
                                                                           filter=None if not args.feature_filter
@@ -105,7 +112,7 @@ if __name__ == "__main__":
 
     # Loop through the features and get DataFrames
     for index, feature in enumerate(top_10_index):
-        df = get_top_examples(originals, synth, feature, 100)
+        df = get_top_examples(originals, synth, feature, 100, training_splits)
         dfs.append(df)  # Append the DataFrame to the list
 
     # Concatenate all DataFrames in the list into a single DataFrame
@@ -114,4 +121,4 @@ if __name__ == "__main__":
     final_df = shuffled_df.drop_duplicates(subset='identifier', keep='first')
 
     print(final_df)
-    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition.csv")
+    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv")

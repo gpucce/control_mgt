@@ -172,3 +172,5 @@ wandb
 TODO.md
 notes.md
 guided_gen.poc.ipynb
+
+dpo_dataset/model/*
