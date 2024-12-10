@@ -1,4 +1,5 @@
 *.jsonl
+!dpo_dataset/data/dataset-max-feature-difference-top-10_iter_1.jsonl
 conda_venv/
 
 # Byte-compiled / optimized / DLL files
