@@ -64,7 +64,7 @@ def get_top_examples(originals, synth, feature, max_number_examples, training_sp
     differences = []
 
     for index, row in originals.iterrows():
-        if row['identifier'] in training_splits:
+        if int(row['identifier'].split(".")[0]) in training_splits:
             difference = abs(originals.iloc[index][feature] - synth.iloc[index][feature])
             raw_difference = originals.iloc[index][feature] - synth.iloc[index][feature]
             identifier = originals.iloc[index]['identifier']
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     # Loop through the features and get DataFrames
     for index, feature in enumerate(top_10_index):
-        df = get_top_examples(originals, synth, feature, 100, training_splits)
+        df = get_top_examples(originals, synth, feature, 1000, training_splits)
         dfs.append(df)  # Append the DataFrame to the list
 
     # Concatenate all DataFrames in the list into a single DataFrame
@@ -121,4 +121,5 @@ if __name__ == "__main__":
     final_df = shuffled_df.drop_duplicates(subset='identifier', keep='first')
 
     print(final_df)
-    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv")
+    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv", index=False)
+

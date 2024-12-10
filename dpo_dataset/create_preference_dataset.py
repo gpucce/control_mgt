@@ -32,10 +32,10 @@ def __extract_systems_and_prompt(instance):
         user_prompt = match.group(2).strip()
 
         # Print the extracted texts
-        print("system_text:")
+        """print("system_text:")
         print(system_text)
         print("\nuser_prompt:")
-        print(user_prompt)
+        print(user_prompt)"""
         return system_text, user_prompt
     else:
         print("No match found.")
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     model, top_10_index, feature_labels = train_model_and_get_top_feature(args.profiling_data_path,
                                                                           filter=None if not args.feature_filter
                                                                           else "profiling_results/TO_REMOVE.txt")
-    max_difference_df = pd.read_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition.csv")
+    max_difference_df = pd.read_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv")
 
     originals = pd.read_csv(f"data/profiling_data/xsum_original.zip", compression="zip", sep="\t")
     synth = pd.read_csv(f"data/profiling_data/generations_8b_1_iter.zip", compression="zip", sep="\t")
