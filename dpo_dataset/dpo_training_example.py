@@ -1,26 +1,17 @@
-import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from trl import (
     DPOConfig,
     DPOTrainer,
-    ModelConfig,
-    ScriptArguments,
-    TrlParser,
-    get_kbit_device_map,
-    get_peft_config,
-    get_quantization_config,
 )
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 from peft import LoraConfig, get_peft_model
 from accelerate import FullyShardedDataParallelPlugin, Accelerator
 from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig, FullStateDictConfig
-import matplotlib.pyplot as plt
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 from datetime import datetime
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 def print_trainable_parameters(model):
         """
@@ -97,7 +88,11 @@ if __name__ == "__main__":
 
     # model = AutoModelForCausalLM.from_pretrained(model_name)
     tokenizer = get_tokenizer(model_name)
-    dataset = load_dataset("json", data_files="dpo_dataset/data/dataset-max-feature-difference-top-10_iter_1.zip", split="train")
+    dataset = load_dataset(
+        "json",
+        data_files="dpo_dataset/data/dataset-max-feature-difference-top-10_iter_1.zip",
+        split="train")
+
     model = prepare_model_for_LoRA_training(model, accelerator)
     # Define the DPOConfig with your training parameters
     training_config = DPOConfig(

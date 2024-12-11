@@ -7,8 +7,6 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import make_pipeline
 import pandas as pd
-import matplotlib.pyplot as plt
-import sys
 
 
 def load_data(filename, feat_filter_path=None):
@@ -95,7 +93,7 @@ if __name__ == "__main__":
     splits_path = "data/data_2024_11_08/splits/llama-3.1-8b-instruct-hf_xsum_informed.split.100000.json"
     with open(splits_path, "r") as input_splits:
         splits = json.loads(input_splits.read())
-        
+
     training_splits = splits['tr']
     del splits
 
