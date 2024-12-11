@@ -30,9 +30,11 @@ class NewsDataset(Dataset):
             self,
             data,
             skip_nchars=0,
+            lowercase=False,
     ):
         self.data = data
         self.skip_nchars = skip_nchars
+        self.lowercase = lowercase
     
     def __getitem__(self, index):
         data = self.data.iloc[index]
@@ -41,6 +43,10 @@ class NewsDataset(Dataset):
             "text": data.text[self.skip_nchars:],
             "label": data.label
         }
+
+        if self.lowercase:
+            sample["text"] = sample["text"].lower()
+
         return sample
     
     def __len__(self):
@@ -219,6 +225,12 @@ def main(args):
 
     model, tokenizer = get_model(model_name=args.model_name, device="cuda")
 
+    if args.drop_positions:
+        print("- freezing positional embeddings (zero-like)")
+        model.base_model.embeddings.position_embeddings.weight.data = torch.zeros_like(model.base_model.embeddings.position_embeddings.weight)
+        model.base_model.embeddings.position_embeddings.weight.requires_grad = False
+
+
     if args.stats:
         print("\nTraining Tokenized Stats: ")
         tr_r_stats, tr_f_stats = compute_tokenized_lengths(tr_dataset, tokenizer)
@@ -247,7 +259,22 @@ def main(args):
         trainable_layers = [p_name for p_name, p in model.named_parameters() if p.requires_grad == True] 
         print(f"Trainable layers: {trainable_layers}")
 
-    output_folder = f"{args.model_name}_split{args.num_samples}_skip{args.skip_nchars}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
+    # output_folder = f"{args.model_name}_split{args.num_samples}_skip{args.skip_nchars}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
+
+    def get_output_folder(model_name, num_samples, skip_nchars, datapath, no_positions, freeze_backbone):
+        no_positions = "nopos" if no_positions else ""
+        skip_nchars = f"skip_{skip_nchars}" if skip_nchars != 0 else ""
+        freeze_backbone = "frozen" if freeze_backbone else ""
+        num_samples = f"split{num_samples}"
+        datapath = datapath.split("/")[-1].replace(".zip", "")
+
+        path = [elem for elem in [model_name, num_samples, no_positions, freeze_backbone, skip_nchars, datapath] if elem != ""]
+
+        output_folder = os.path.join(*path)
+        return output_folder
+    
+    output_folder = get_output_folder(model_name=args.model_name, num_samples=args.num_samples, skip_nchars=args.skip_nchars, datapath=args.datapath, no_positions=args.drop_positions, freeze_backbone=args.freeze_backbone)
+
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
@@ -270,6 +297,7 @@ def main(args):
         load_best_model_at_end=True,
         remove_unused_columns=False,
         save_total_limit=1,
+        eval_on_start=True,
     )
 
     callbacks = []
@@ -427,5 +455,6 @@ if __name__ == "__main__":
     parser.add_argument("--test_othergen", action="store_true", help="test on other generator too")     # TODO
     parser.add_argument("--only_synth", action="store_true", help="evaluate only on synthetic texts")
     parser.add_argument("--nosave", action="store_true")
+    parser.add_argument("--drop_positions", action="store_true")
     args = parser.parse_args()
     main(args)
