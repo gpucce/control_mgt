@@ -175,3 +175,5 @@ etc
 *.sh
 *.ipynb
 *.bak
+profiling
+preds-classifier
