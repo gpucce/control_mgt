@@ -106,19 +106,19 @@ SYSTEM_PROMPTS_XSUM=[
 #     # "Write a piece of news, that will appear in a a weekly magazine in England, focus on the impact this news can have on the whole country, in the UK and that has the following title:\n\n{m}",
 # ]
 
-# USER_PROMPTS_XSUM_INFORMED=[
-#     "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 500 words.",
-# ]
+USER_PROMPTS_XSUM_INFORMED=[
+    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 500 words.",
+]
 
-XSUM_VENUES = ["local newspaper", "national newspaper", "national magazine", "international magazine", "weekly magazine", "opinion magazine", "international journal"]
-COUNTRY = ["Scotland", "Wales", "Ireland", "England", "Northern Ireland", "United Kingdom", "UK"]
-FOCUS = ["the whole country", "the town or city where it happened", "the world", "the local community", "the country", "Europe"]
+# XSUM_VENUES = ["local newspaper", "national newspaper", "national magazine", "international magazine", "weekly magazine", "opinion magazine", "international journal"]
+# COUNTRY = ["Scotland", "Wales", "Ireland", "England", "Northern Ireland", "United Kingdom", "UK"]
+# FOCUS = ["the whole country", "the town or city where it happened", "the world", "the local community", "the country", "Europe"]
 
-_USER_PROMPT_XSUM="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||"
-USER_PROMPTS_XSUM=[_USER_PROMPT_XSUM.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
+# _USER_PROMPT_XSUM="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||"
+# USER_PROMPTS_XSUM=[_USER_PROMPT_XSUM.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
 
-_USER_PROMPT_XSUM_INFORMED="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 1000 words."
-USER_PROMPTS_XSUM_INFORMED=[_USER_PROMPT_XSUM_INFORMED.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
+# _USER_PROMPT_XSUM_INFORMED="Write a piece of news, that will appear in a {venue} in {country}, focus on {focus}, and that has the following title:\n\n|||title|||\n In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague. You don't have to add the date of the event but you can, use at most 1000 words."
+# USER_PROMPTS_XSUM_INFORMED=[_USER_PROMPT_XSUM_INFORMED.format(venue=v, country=c, focus=f).replace("|||title|||", "{m}") for v, c, f in product(XSUM_VENUES, COUNTRY, FOCUS)]
 
 def get_random_prompt_xsum(m, informed):
     out = [{"role":"system", "content":random.choice(SYSTEM_PROMPTS_XSUM)},]
@@ -129,6 +129,29 @@ def get_random_prompt_xsum(m, informed):
     return out
 
 def get_random_prompt_xsum_anita(m, informed):
+    raise NotImplementedError("Not implemented yet")
+
+USER_PROMPTS_XSUM_LINGUISTIC_INFORMED=[
+    "Write a piece of news, that will appear in a national newspapers in the UK and that has the following title:\n\n{m}\n"
+    "In writing avoid any kind of formatting, do not repeat the title and keep the text informative and not vague."
+    "You don't have to add the date of the event but you can, use at most 500 words."
+    "Please also adherethe to the following stylistic guidelines:\n"
+    " - use short sentences and use long words to improve the writing quality;\n" # align sentence_length and char_per_tok
+    " - don't refrain from using adjectives and adverbs;\n" # increase align lexical_density and ttr_...
+    " - limit the use of determiners such as \"this\", \"which\" and \"any\";\n" # lower upos_dist_DET
+    " - feel free to use the verb before the subject.", # increase subj_post
+]
+
+def get_random_prompt_xsum_linguistic(m, informed):
+    out = [{"role":"system", "content":random.choice(SYSTEM_PROMPTS_XSUM)},]
+    if not informed:
+        out.append({"role":"user", "content":random.choice(USER_PROMPTS_XSUM_LINGUISTIC).format(m=m)})
+    else:
+        out.append({"role":"user", "content":random.choice(USER_PROMPTS_XSUM_LINGUISTIC_INFORMED).format(m=m)})
+    return out
+    
+
+def get_random_prompt_xsum_linguistic_anita(m, informed):
     raise NotImplementedError("Not implemented yet")
 
 SYSTEM_REGESTO_PROMPTS = [
