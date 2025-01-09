@@ -1,3 +1,4 @@
+import re
 import random
 from itertools import product
 
@@ -181,3 +182,11 @@ def get_regesto_prompt(m, testi_estesi, regesti, n):
         m, testi_estesi, regesti, n
     )})
     return out
+
+def postprocess_text(text):
+    try:
+        text = re.sub(r"\s+", " ", text)
+    except:
+        pass
+    
+    return text
