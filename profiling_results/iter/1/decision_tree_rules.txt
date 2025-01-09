@@ -1,0 +1,94 @@
+|--- verbs_form_dist_Fin <= 28.06
+|   |--- ttr_form_chunks_200 <= 0.65
+|   |   |--- tokens_per_sent <= 22.35
+|   |   |   |--- n_tokens <= 235.50
+|   |   |   |   |--- ttr_form_chunks_100 <= 0.64
+|   |   |   |   |   |--- weights: [16.00, 36.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_100 >  0.64
+|   |   |   |   |   |--- weights: [1064.00, 128.00] class: 0
+|   |   |   |--- n_tokens >  235.50
+|   |   |   |   |--- aux_num_pers_dist_+ <= 10.26
+|   |   |   |   |   |--- weights: [177.00, 649.00] class: 1
+|   |   |   |   |--- aux_num_pers_dist_+ >  10.26
+|   |   |   |   |   |--- weights: [620.00, 267.00] class: 0
+|   |   |--- tokens_per_sent >  22.35
+|   |   |   |--- ttr_lemma_chunks_200 <= 0.09
+|   |   |   |   |--- ttr_form_chunks_100 <= 0.73
+|   |   |   |   |   |--- weights: [309.00, 1039.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_100 >  0.73
+|   |   |   |   |   |--- weights: [925.00, 405.00] class: 0
+|   |   |   |--- ttr_lemma_chunks_200 >  0.09
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.62
+|   |   |   |   |   |--- weights: [1077.00, 37118.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.62
+|   |   |   |   |   |--- weights: [1108.00, 4748.00] class: 1
+|   |--- ttr_form_chunks_200 >  0.65
+|   |   |--- verbs_form_dist_Ger <= 20.64
+|   |   |   |--- tokens_per_sent <= 24.68
+|   |   |   |   |--- aux_num_pers_dist_+ <= 6.46
+|   |   |   |   |   |--- weights: [293.00, 93.00] class: 0
+|   |   |   |   |--- aux_num_pers_dist_+ >  6.46
+|   |   |   |   |   |--- weights: [2369.00, 117.00] class: 0
+|   |   |   |--- tokens_per_sent >  24.68
+|   |   |   |   |--- aux_num_pers_dist_+ <= 12.92
+|   |   |   |   |   |--- weights: [286.00, 383.00] class: 1
+|   |   |   |   |--- aux_num_pers_dist_+ >  12.92
+|   |   |   |   |   |--- weights: [1107.00, 271.00] class: 0
+|   |   |--- verbs_form_dist_Ger >  20.64
+|   |   |   |--- ttr_form_chunks_200 <= 0.67
+|   |   |   |   |--- aux_num_pers_dist_+ <= 20.71
+|   |   |   |   |   |--- weights: [170.00, 899.00] class: 1
+|   |   |   |   |--- aux_num_pers_dist_+ >  20.71
+|   |   |   |   |   |--- weights: [191.00, 169.00] class: 0
+|   |   |   |--- ttr_form_chunks_200 >  0.67
+|   |   |   |   |--- char_per_tok <= 4.97
+|   |   |   |   |   |--- weights: [485.00, 110.00] class: 0
+|   |   |   |   |--- char_per_tok >  4.97
+|   |   |   |   |   |--- weights: [131.00, 185.00] class: 1
+|--- verbs_form_dist_Fin >  28.06
+|   |--- upos_dist_DET <= 10.88
+|   |   |--- tokens_per_sent <= 26.65
+|   |   |   |--- ttr_form_chunks_100 <= 0.73
+|   |   |   |   |--- tokens_per_sent <= 23.89
+|   |   |   |   |   |--- weights: [5399.00, 806.00] class: 0
+|   |   |   |   |--- tokens_per_sent >  23.89
+|   |   |   |   |   |--- weights: [2179.00, 1493.00] class: 0
+|   |   |   |--- ttr_form_chunks_100 >  0.73
+|   |   |   |   |--- verbs_form_dist_Ger <= 21.53
+|   |   |   |   |   |--- weights: [33404.00, 1309.00] class: 0
+|   |   |   |   |--- verbs_form_dist_Ger >  21.53
+|   |   |   |   |   |--- weights: [2167.00, 598.00] class: 0
+|   |   |--- tokens_per_sent >  26.65
+|   |   |   |--- ttr_form_chunks_100 <= 0.75
+|   |   |   |   |--- aux_num_pers_dist_+ <= 17.03
+|   |   |   |   |   |--- weights: [1154.00, 3475.00] class: 1
+|   |   |   |   |--- aux_num_pers_dist_+ >  17.03
+|   |   |   |   |   |--- weights: [1335.00, 762.00] class: 0
+|   |   |   |--- ttr_form_chunks_100 >  0.75
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.65
+|   |   |   |   |   |--- weights: [2499.00, 1095.00] class: 0
+|   |   |   |   |--- ttr_form_chunks_200 >  0.65
+|   |   |   |   |   |--- weights: [3611.00, 266.00] class: 0
+|   |--- upos_dist_DET >  10.88
+|   |   |--- tokens_per_sent <= 23.84
+|   |   |   |--- aux_num_pers_dist_+ <= 6.46
+|   |   |   |   |--- verbs_form_dist_Ger <= 14.09
+|   |   |   |   |   |--- weights: [925.00, 432.00] class: 0
+|   |   |   |   |--- verbs_form_dist_Ger >  14.09
+|   |   |   |   |   |--- weights: [347.00, 1026.00] class: 1
+|   |   |   |--- aux_num_pers_dist_+ >  6.46
+|   |   |   |   |--- verbs_form_dist_Ger <= 22.05
+|   |   |   |   |   |--- weights: [3095.00, 374.00] class: 0
+|   |   |   |   |--- verbs_form_dist_Ger >  22.05
+|   |   |   |   |   |--- weights: [143.00, 124.00] class: 0
+|   |   |--- tokens_per_sent >  23.84
+|   |   |   |--- aux_num_pers_dist_+ <= 13.81
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.64
+|   |   |   |   |   |--- weights: [694.00, 8161.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.64
+|   |   |   |   |   |--- weights: [673.00, 1226.00] class: 1
+|   |   |   |--- aux_num_pers_dist_+ >  13.81
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.62
+|   |   |   |   |   |--- weights: [759.00, 1720.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.62
+|   |   |   |   |   |--- weights: [1288.00, 516.00] class: 0
