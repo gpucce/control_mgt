@@ -1,0 +1,94 @@
+|--- char_per_tok <= 4.87
+|   |--- verbs_form_dist_Fin <= 21.81
+|   |   |--- tokens_per_sent <= 24.95
+|   |   |   |--- dep_dist_nmod:poss <= 3.21
+|   |   |   |   |--- ttr_form_chunks_100 <= 0.63
+|   |   |   |   |   |--- weights: [15.00, 75.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_100 >  0.63
+|   |   |   |   |   |--- weights: [1658.00, 232.00] class: 0
+|   |   |   |--- dep_dist_nmod:poss >  3.21
+|   |   |   |   |--- dep_dist_det <= 8.78
+|   |   |   |   |   |--- weights: [106.00, 65.00] class: 0
+|   |   |   |   |--- dep_dist_det >  8.78
+|   |   |   |   |   |--- weights: [33.00, 227.00] class: 1
+|   |   |--- tokens_per_sent >  24.95
+|   |   |   |--- ttr_form_chunks_200 <= 0.65
+|   |   |   |   |--- dep_dist_det <= 7.76
+|   |   |   |   |   |--- weights: [241.00, 248.00] class: 1
+|   |   |   |   |--- dep_dist_det >  7.76
+|   |   |   |   |   |--- weights: [322.00, 4221.00] class: 1
+|   |   |   |--- ttr_form_chunks_200 >  0.65
+|   |   |   |   |--- dep_dist_nmod:poss <= 3.68
+|   |   |   |   |   |--- weights: [442.00, 110.00] class: 0
+|   |   |   |   |--- dep_dist_nmod:poss >  3.68
+|   |   |   |   |   |--- weights: [31.00, 119.00] class: 1
+|   |--- verbs_form_dist_Fin >  21.81
+|   |   |--- dep_dist_det <= 11.16
+|   |   |   |--- dep_dist_nmod:poss <= 4.40
+|   |   |   |   |--- dep_dist_root <= 3.54
+|   |   |   |   |   |--- weights: [4033.00, 702.00] class: 0
+|   |   |   |   |--- dep_dist_root >  3.54
+|   |   |   |   |   |--- weights: [41445.00, 843.00] class: 0
+|   |   |   |--- dep_dist_nmod:poss >  4.40
+|   |   |   |   |--- char_per_tok <= 4.68
+|   |   |   |   |   |--- weights: [1351.00, 298.00] class: 0
+|   |   |   |   |--- char_per_tok >  4.68
+|   |   |   |   |   |--- weights: [376.00, 890.00] class: 1
+|   |   |--- dep_dist_det >  11.16
+|   |   |   |--- dep_dist_nmod:poss <= 2.74
+|   |   |   |   |--- tokens_per_sent <= 26.29
+|   |   |   |   |   |--- weights: [3387.00, 366.00] class: 0
+|   |   |   |   |--- tokens_per_sent >  26.29
+|   |   |   |   |   |--- weights: [923.00, 849.00] class: 0
+|   |   |   |--- dep_dist_nmod:poss >  2.74
+|   |   |   |   |--- char_per_tok <= 4.58
+|   |   |   |   |   |--- weights: [223.00, 144.00] class: 0
+|   |   |   |   |--- char_per_tok >  4.58
+|   |   |   |   |   |--- weights: [211.00, 1427.00] class: 1
+|--- char_per_tok >  4.87
+|   |--- dep_dist_root <= 4.28
+|   |   |--- verbs_form_dist_Ger <= 12.97
+|   |   |   |--- verbs_form_dist_Fin <= 26.39
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.67
+|   |   |   |   |   |--- weights: [331.00, 2750.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.67
+|   |   |   |   |   |--- weights: [117.00, 54.00] class: 0
+|   |   |   |--- verbs_form_dist_Fin >  26.39
+|   |   |   |   |--- dep_dist_nmod:poss <= 2.95
+|   |   |   |   |   |--- weights: [2805.00, 895.00] class: 0
+|   |   |   |   |--- dep_dist_nmod:poss >  2.95
+|   |   |   |   |   |--- weights: [380.00, 1121.00] class: 1
+|   |   |--- verbs_form_dist_Ger >  12.97
+|   |   |   |--- ttr_form_chunks_200 <= 0.69
+|   |   |   |   |--- dep_dist_ccomp <= 2.13
+|   |   |   |   |   |--- weights: [1676.00, 47055.00] class: 1
+|   |   |   |   |--- dep_dist_ccomp >  2.13
+|   |   |   |   |   |--- weights: [787.00, 1899.00] class: 1
+|   |   |   |--- ttr_form_chunks_200 >  0.69
+|   |   |   |   |--- char_per_tok <= 5.20
+|   |   |   |   |   |--- weights: [626.00, 299.00] class: 0
+|   |   |   |   |--- char_per_tok >  5.20
+|   |   |   |   |   |--- weights: [111.00, 599.00] class: 1
+|   |--- dep_dist_root >  4.28
+|   |   |--- verbs_form_dist_Ger <= 19.72
+|   |   |   |--- verbs_form_dist_Fin <= 25.32
+|   |   |   |   |--- char_per_tok <= 5.21
+|   |   |   |   |   |--- weights: [652.00, 370.00] class: 0
+|   |   |   |   |--- char_per_tok >  5.21
+|   |   |   |   |   |--- weights: [73.00, 415.00] class: 1
+|   |   |   |--- verbs_form_dist_Fin >  25.32
+|   |   |   |   |--- dep_dist_nmod:poss <= 4.28
+|   |   |   |   |   |--- weights: [6467.00, 519.00] class: 0
+|   |   |   |   |--- dep_dist_nmod:poss >  4.28
+|   |   |   |   |   |--- weights: [123.00, 194.00] class: 1
+|   |   |--- verbs_form_dist_Ger >  19.72
+|   |   |   |--- char_per_tok <= 5.11
+|   |   |   |   |--- upos_dist_DET <= 9.51
+|   |   |   |   |   |--- weights: [539.00, 143.00] class: 0
+|   |   |   |   |--- upos_dist_DET >  9.51
+|   |   |   |   |   |--- weights: [208.00, 622.00] class: 1
+|   |   |   |--- char_per_tok >  5.11
+|   |   |   |   |--- upos_dist_PROPN <= 9.75
+|   |   |   |   |   |--- weights: [151.00, 1979.00] class: 1
+|   |   |   |   |--- upos_dist_PROPN >  9.75
+|   |   |   |   |   |--- weights: [157.00, 270.00] class: 1

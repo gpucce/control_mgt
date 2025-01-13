@@ -8,9 +8,14 @@ from sklearn.pipeline import make_pipeline
 import pandas as pd
 import matplotlib.pyplot as plt
 import sys
+import joblib
 
 iter = sys.argv[1]
-feat_filter = sys.argv[2]
+feat_filter = sys.argv[2] # all, filter
+try:
+    svm_to_load = sys.argv[3] # path of the eventual svm to load
+except IndexError:
+    svm_to_load = None
 
 def load_data(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
@@ -54,21 +59,29 @@ X_train, y_train, feature_labels = load_data(f"iter/{iter}/train_data.json.gz")
 X_val, y_val, feature_labels = load_data(f"iter/{iter}/val_data.json.gz")
 X_test, y_test, feature_labels = load_data(f"iter/{iter}/test_data.json.gz")
 
-model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
-
-model.fit(X_train, y_train)
-
-y_val_pred = model.predict(X_val)
-print("Validation Set Performance:")
-print(classification_report(y_val, y_val_pred, digits=4))
-
 iter = iter+f"/{feat_filter}" if feat_filter != "filter" else iter
+
+if svm_to_load:
+    model = joblib.load(f"iter/{iter}/svm_pipeline.joblib")
+else:
+    model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
+    model.fit(X_train, y_train)
+    joblib.dump(model, f"iter/{iter}/svm_pipeline.joblib")
+    y_val_pred = model.predict(X_val)
+    print("Validation Set Performance:")
+    print(classification_report(y_val, y_val_pred, digits=4))
 
 y_test_pred = model.predict(X_test)
 print("Test Set Performance:")
 results = classification_report(y_test, y_test_pred, digits=4, output_dict=True)
-with open(f"iter/{iter}/svm_res.json", "w") as f:
-    json.dump(results, f)
+
+if svm_to_load:
+    with open(f"iter/{iter}/previous_svm_res.json", "w") as f:
+        json.dump(results, f)
+else:
+    with open(f"iter/{iter}/svm_res.json", "w") as f:
+        json.dump(results, f)
+
 print(classification_report(y_test, y_test_pred, digits=4))
 
 
@@ -101,5 +114,5 @@ def plot_feature_importance(model, feature_labels):
 
     sorted_importance_df.to_csv(f"iter/{iter}/svm_coefs.csv", index=False)
 
-
-plot_feature_importance(model, feature_labels)
+if not svm_to_load:
+    plot_feature_importance(model, feature_labels)
