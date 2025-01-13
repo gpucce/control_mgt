@@ -50,7 +50,7 @@ def create_dataset(max_difference_df, generations_df_path, pUD_originals, pUD_sy
         "chosen": [],
         "rejected": [],
     }
-    with open("dataset-max-feature-difference-top-10_iter_1.jsonl", "w") as output_file:
+    with open("dataset-max-feature-difference-top-10_iter_2.jsonl", "w") as output_file:
         with zipfile.ZipFile(generations_df_path) as zf:
             with io.TextIOWrapper(
                     zf.open("generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.jsonl"),
@@ -91,10 +91,10 @@ if __name__ == "__main__":
     model, top_10_index, feature_labels = train_model_and_get_top_feature(args.profiling_data_path,
                                                                           filter=None if not args.feature_filter
                                                                           else "profiling_results/TO_REMOVE.txt")
-    max_difference_df = pd.read_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv")
+    max_difference_df = pd.read_csv("dpo_dataset/data-iter-2/max_difference_top_10_feature_dataset_no_repetition_tr.csv")
 
     originals = pd.read_csv(f"data/profiling_data/xsum_original.zip", compression="zip", sep="\t")
-    synth = pd.read_csv(f"data/profiling_data/generations_8b_1_iter.zip", compression="zip", sep="\t")
+    synth = pd.read_csv(f"data/profiling_data/generations_8b_2_iter_dpo.zip", compression="zip", sep="\t")
 
     create_dataset(max_difference_df,
                    "data/data_2024_11_12/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.zip",

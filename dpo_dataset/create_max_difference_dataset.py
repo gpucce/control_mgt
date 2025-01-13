@@ -103,7 +103,7 @@ if __name__ == "__main__":
     print(top_10_index)
 
     originals = pd.read_csv(f"data/profiling_data/xsum_original.zip", compression="zip", sep="\t")
-    synth = pd.read_csv(f"data/profiling_data/generations_8b_1_iter.zip", compression="zip", sep="\t")
+    synth = pd.read_csv(f"data/profiling_data/generations_8b_2_iter_dpo.zip", compression="zip", sep="\t")
     print(originals)
     print(synth)
     dfs = []
@@ -119,5 +119,5 @@ if __name__ == "__main__":
     final_df = shuffled_df.drop_duplicates(subset='identifier', keep='first')
 
     print(final_df)
-    final_df.to_csv("dpo_dataset/data/max_difference_top_10_feature_dataset_no_repetition_tr.csv", index=False)
+    final_df.to_csv("dpo_dataset/data-iter-2/max_difference_top_10_feature_dataset_no_repetition_tr.csv", index=False)
 
