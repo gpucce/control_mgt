@@ -12,12 +12,12 @@
 |   |   |   |   |--- aux_num_pers_dist_+ >  10.26
 |   |   |   |   |   |--- weights: [620.00, 267.00] class: 0
 |   |   |--- tokens_per_sent >  22.35
-|   |   |   |--- ttr_lemma_chunks_200 <= 0.09
+|   |   |   |--- ttr_form_chunks_200 <= 0.09
 |   |   |   |   |--- ttr_form_chunks_100 <= 0.73
 |   |   |   |   |   |--- weights: [309.00, 1039.00] class: 1
 |   |   |   |   |--- ttr_form_chunks_100 >  0.73
 |   |   |   |   |   |--- weights: [925.00, 405.00] class: 0
-|   |   |   |--- ttr_lemma_chunks_200 >  0.09
+|   |   |   |--- ttr_form_chunks_200 >  0.09
 |   |   |   |   |--- ttr_form_chunks_200 <= 0.62
 |   |   |   |   |   |--- weights: [1077.00, 37118.00] class: 1
 |   |   |   |   |--- ttr_form_chunks_200 >  0.62

@@ -11,7 +11,7 @@ from sklearn.tree import export_text
 import sys
 
 iter = sys.argv[1]
-feat_filter = sys.argv[2]
+feat_filter = sys.argv[2] # all, filter
 
 def load_data(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:

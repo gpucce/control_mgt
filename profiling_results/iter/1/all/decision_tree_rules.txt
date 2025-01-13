@@ -47,18 +47,7 @@
 |   |   |   |   |   |--- weights: [131.00, 185.00] class: 1
 |--- verbs_form_dist_Fin >  28.06
 |   |--- dep_dist_det <= 10.62
-|   |   |--- dep_dist_root <= 3.74
-|   |   |   |--- ttr_form_chunks_100 <= 0.75
-|   |   |   |   |--- aux_num_pers_dist_+ <= 17.03
-|   |   |   |   |   |--- weights: [1080.00, 3169.00] class: 1
-|   |   |   |   |--- aux_num_pers_dist_+ >  17.03
-|   |   |   |   |   |--- weights: [1254.00, 706.00] class: 0
-|   |   |   |--- ttr_form_chunks_100 >  0.75
-|   |   |   |   |--- ttr_form_chunks_200 <= 0.66
-|   |   |   |   |   |--- weights: [2593.00, 1076.00] class: 0
-|   |   |   |   |--- ttr_form_chunks_200 >  0.66
-|   |   |   |   |   |--- weights: [3192.00, 200.00] class: 0
-|   |   |--- dep_dist_root >  3.74
+|   |   |--- tokens_per_sent <= 26.76
 |   |   |   |--- dep_dist_nmod:poss <= 4.16
 |   |   |   |   |--- ttr_form_chunks_100 <= 0.73
 |   |   |   |   |   |--- weights: [7128.00, 1569.00] class: 0
@@ -69,6 +58,17 @@
 |   |   |   |   |   |--- weights: [1554.00, 380.00] class: 0
 |   |   |   |   |--- dep_dist_det >  8.30
 |   |   |   |   |   |--- weights: [506.00, 798.00] class: 1
+|   |   |--- tokens_per_sent >  26.76
+|   |   |   |--- ttr_form_chunks_100 <= 0.75
+|   |   |   |   |--- aux_num_pers_dist_+ <= 17.03
+|   |   |   |   |   |--- weights: [1080.00, 3169.00] class: 1
+|   |   |   |   |--- aux_num_pers_dist_+ >  17.03
+|   |   |   |   |   |--- weights: [1254.00, 706.00] class: 0
+|   |   |   |--- ttr_form_chunks_100 >  0.75
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.66
+|   |   |   |   |   |--- weights: [2593.00, 1076.00] class: 0
+|   |   |   |   |--- ttr_form_chunks_200 >  0.66
+|   |   |   |   |   |--- weights: [3192.00, 200.00] class: 0
 |   |--- dep_dist_det >  10.62
 |   |   |--- dep_dist_ccomp <= 1.24
 |   |   |   |--- ttr_form_chunks_200 <= 0.65
@@ -82,13 +82,13 @@
 |   |   |   |   |--- aux_num_pers_dist_+ >  2.63
 |   |   |   |   |   |--- weights: [912.00, 228.00] class: 0
 |   |   |--- dep_dist_ccomp >  1.24
-|   |   |   |--- dep_dist_root <= 3.80
-|   |   |   |   |--- ttr_form_chunks_200 <= 0.62
-|   |   |   |   |   |--- weights: [453.00, 1936.00] class: 1
-|   |   |   |   |--- ttr_form_chunks_200 >  0.62
-|   |   |   |   |   |--- weights: [565.00, 195.00] class: 0
-|   |   |   |--- dep_dist_root >  3.80
+|   |   |   |--- tokens_per_sent <= 26.31
 |   |   |   |   |--- upos_dist_PROPN <= 4.09
 |   |   |   |   |   |--- weights: [265.00, 269.00] class: 1
 |   |   |   |   |--- upos_dist_PROPN >  4.09
 |   |   |   |   |   |--- weights: [4232.00, 607.00] class: 0
+|   |   |   |--- tokens_per_sent >  26.31
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.62
+|   |   |   |   |   |--- weights: [453.00, 1936.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.62
+|   |   |   |   |   |--- weights: [565.00, 195.00] class: 0
