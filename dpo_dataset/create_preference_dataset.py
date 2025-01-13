@@ -11,10 +11,29 @@ from create_max_difference_dataset import train_model_and_get_top_feature
 def __extract_feature_for_prediction(identifier, df, feature_labels):
     feature_labels = feature_labels.tolist()
     feature_labels.append("identifier")
+    
+    # Ensure all required columns exist in the DataFrame
+    missing_features = [col for col in feature_labels if col not in df.columns]
+    if missing_features:
+        print(f"Warning: The following features are missing and will be filled with default values: {missing_features}")
+    
+    # Add missing columns with default values (e.g., 0)
+    for col in missing_features:
+        df[col] = 0  # Default value can be adjusted as needed
+    
+    # Filter DataFrame to only include required columns
     df = df[df.columns.intersection(feature_labels)]
+    
+    # Select the row matching the identifier
     row = df.loc[df['identifier'] == identifier].copy()
     row = row.drop(['identifier'], axis=1)
+    
+    # Validate feature dimensions
+    if row.shape[1] != len(feature_labels) - 1:  # Minus 1 for 'identifier'
+        raise ValueError(f"Feature mismatch: Expected {len(feature_labels) - 1}, but got {row.shape[1]}.")
+    
     return row.values
+
 
 
 def __extract_systems_and_prompt(instance):
@@ -50,6 +69,7 @@ def create_dataset(max_difference_df, generations_df_path, pUD_originals, pUD_sy
         "chosen": [],
         "rejected": [],
     }
+
     with open("dataset-max-feature-difference-top-10_iter_2.jsonl", "w") as output_file:
         with zipfile.ZipFile(generations_df_path) as zf:
             with io.TextIOWrapper(
