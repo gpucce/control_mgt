@@ -15,23 +15,31 @@ def extract_splits(splits_path, profile_gen_path, profile_og_path):
 
     with open(splits_path) as f:
         splits = json.load(f)
+
+    with open("all_features_order.txt") as f:
+        all_features_order = f.read().splitlines()
+        all_features_order.insert(0, "identifier") # we add the identifier col since every dataframe has it
     
     df_gen = pd.read_csv(profile_gen_path, sep = "\t")
-    df_gen["label"] = [1 for _ in range(len(df_gen))]
+    # adding all features set to 0 and put them in the same order
+    for feat in all_features_order:
+        if feat not in df_gen.columns.to_list():
+            df_gen[feat] = 0
+    df_gen = df_gen[all_features_order]
+    
     df_og = pd.read_csv(profile_og_path, sep = "\t")
-    df_og["label"] = [0 for _ in range(len(df_og))]
-    temp_df = pd.concat([df_gen, df_og]).dropna(axis=1) # align columns
-    df_gen = temp_df[temp_df["label"] == 1].drop(["label"], axis = 1)
-    df_og = temp_df[temp_df["label"] == 0].drop(["label"], axis = 1)
+    for feat in all_features_order:
+        if feat not in df_og.columns.to_list():
+            df_og[feat] = 0
+    df_og = df_og[all_features_order]
     assert df_gen.columns.to_list() == df_og.columns.to_list()
     cols = df_gen.columns.to_list()[1:] # we skip the identifier column
-    del temp_df
 
     X_train_og, train_indexes_og = match_indexes(df_og, splits["tr"])
     y_train_og = [0 for _ in X_train_og]
     X_train_gen, train_indexes_gen = match_indexes(df_gen, splits["tr"])
     y_train_gen = [1 for _ in X_train_gen]
-    X_train = X_train_og + X_train_gen # fare concat
+    X_train = X_train_og + X_train_gen
     y_train = y_train_og + y_train_gen
     train_indexes = train_indexes_og + train_indexes_gen
     print(len(train_indexes), len(X_train), len(y_train))
@@ -79,16 +87,25 @@ def match_indexes(df, indexes):
 
 if __name__ == "__main__":
 
-    iter = sys.argv[1]
+    # args are: splits, generated_text, original, iter
+
+    splits_path = sys.argv[1]
+    profile_gen_path = sys.argv[2]
+    profile_og_path = sys.argv[3]
+    iter = sys.argv[4]
 
     random_seed = 42
 
     np.random.seed(random_seed)
     random.seed(random_seed)
     
-    X_train, y_train, train_indexes, X_val, y_val, val_indexes, X_test, y_test, test_indexes, cols = extract_splits("llama-3.1-8b-instruct-hf_xsum_informed.split.100000.json",
-                                                                                                            f"output_results/generations_8b_{iter}_iter.tsv",
-                                                                                                            "output_results/xsum_original.tsv"
+    # X_train, y_train, train_indexes, X_val, y_val, val_indexes, X_test, y_test, test_indexes, cols = extract_splits("llama-3.1-8b-instruct-hf_xsum_informed.split.100000.json",
+    #                                                                                                         f"output_results/generations_8b_{iter}_.tsv",
+    #                                                                                                         "output_results/xsum_original.tsv"
+    #                                                                                                         )
+    X_train, y_train, train_indexes, X_val, y_val, val_indexes, X_test, y_test, test_indexes, cols = extract_splits(splits_path,
+                                                                                                            profile_gen_path,
+                                                                                                            profile_og_path
                                                                                                             )
     
     train_data = {

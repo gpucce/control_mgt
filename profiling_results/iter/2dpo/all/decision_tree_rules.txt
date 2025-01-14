@@ -1,0 +1,94 @@
+|--- ttr_form_chunks_100 <= 0.72
+|   |--- ttr_form_chunks_200 <= 0.60
+|   |   |--- ttr_lemma_chunks_200 <= 0.03
+|   |   |   |--- ttr_form_chunks_100 <= 0.67
+|   |   |   |   |--- dep_dist_parataxis <= 0.42
+|   |   |   |   |   |--- weights: [210.00, 1352.00] class: 1
+|   |   |   |   |--- dep_dist_parataxis >  0.42
+|   |   |   |   |   |--- weights: [124.00, 175.00] class: 1
+|   |   |   |--- ttr_form_chunks_100 >  0.67
+|   |   |   |   |--- dep_dist_ccomp <= 0.48
+|   |   |   |   |   |--- weights: [381.00, 707.00] class: 1
+|   |   |   |   |--- dep_dist_ccomp >  0.48
+|   |   |   |   |   |--- weights: [1317.00, 431.00] class: 0
+|   |   |--- ttr_lemma_chunks_200 >  0.03
+|   |   |   |--- ttr_form_chunks_200 <= 0.58
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.56
+|   |   |   |   |   |--- weights: [463.00, 41155.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.56
+|   |   |   |   |   |--- weights: [698.00, 6328.00] class: 1
+|   |   |   |--- ttr_form_chunks_200 >  0.58
+|   |   |   |   |--- verbs_form_dist_Fin <= 30.37
+|   |   |   |   |   |--- weights: [349.00, 2968.00] class: 1
+|   |   |   |   |--- verbs_form_dist_Fin >  30.37
+|   |   |   |   |   |--- weights: [1356.00, 1377.00] class: 1
+|   |--- ttr_form_chunks_200 >  0.60
+|   |   |--- verbs_form_dist_Fin <= 24.66
+|   |   |   |--- avg_links_len <= 2.71
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.64
+|   |   |   |   |   |--- weights: [136.00, 642.00] class: 1
+|   |   |   |   |--- ttr_form_chunks_200 >  0.64
+|   |   |   |   |   |--- weights: [92.00, 51.00] class: 0
+|   |   |   |--- avg_links_len >  2.71
+|   |   |   |   |--- aux_form_dist_Part <= 8.51
+|   |   |   |   |   |--- weights: [215.00, 33.00] class: 0
+|   |   |   |   |--- aux_form_dist_Part >  8.51
+|   |   |   |   |   |--- weights: [69.00, 102.00] class: 1
+|   |   |--- verbs_form_dist_Fin >  24.66
+|   |   |   |--- dep_dist_ccomp <= 1.23
+|   |   |   |   |--- ttr_form_chunks_200 <= 0.64
+|   |   |   |   |   |--- weights: [631.00, 579.00] class: 0
+|   |   |   |   |--- ttr_form_chunks_200 >  0.64
+|   |   |   |   |   |--- weights: [572.00, 73.00] class: 0
+|   |   |   |--- dep_dist_ccomp >  1.23
+|   |   |   |   |--- avg_links_len <= 2.63
+|   |   |   |   |   |--- weights: [1022.00, 222.00] class: 0
+|   |   |   |   |--- avg_links_len >  2.63
+|   |   |   |   |   |--- weights: [2657.00, 108.00] class: 0
+|--- ttr_form_chunks_100 >  0.72
+|   |--- ttr_form_chunks_200 <= 0.63
+|   |   |--- ttr_form_chunks_200 <= 0.18
+|   |   |   |--- dep_dist_det <= 11.06
+|   |   |   |   |--- dep_dist_nmod:poss <= 3.55
+|   |   |   |   |   |--- weights: [10236.00, 386.00] class: 0
+|   |   |   |   |--- dep_dist_nmod:poss >  3.55
+|   |   |   |   |   |--- weights: [1113.00, 277.00] class: 0
+|   |   |   |--- dep_dist_det >  11.06
+|   |   |   |   |--- dep_dist_ccomp <= 0.95
+|   |   |   |   |   |--- weights: [226.00, 308.00] class: 1
+|   |   |   |   |--- dep_dist_ccomp >  0.95
+|   |   |   |   |   |--- weights: [432.00, 38.00] class: 0
+|   |   |--- ttr_form_chunks_200 >  0.18
+|   |   |   |--- ttr_form_chunks_200 <= 0.60
+|   |   |   |   |--- verbs_form_dist_Fin <= 31.91
+|   |   |   |   |   |--- weights: [344.00, 5049.00] class: 1
+|   |   |   |   |--- verbs_form_dist_Fin >  31.91
+|   |   |   |   |   |--- weights: [1317.00, 2482.00] class: 1
+|   |   |   |--- ttr_form_chunks_200 >  0.60
+|   |   |   |   |--- dep_dist_ccomp <= 1.26
+|   |   |   |   |   |--- weights: [1347.00, 2291.00] class: 1
+|   |   |   |   |--- dep_dist_ccomp >  1.26
+|   |   |   |   |   |--- weights: [4372.00, 904.00] class: 0
+|   |--- ttr_form_chunks_200 >  0.63
+|   |   |--- dep_dist_det <= 12.17
+|   |   |   |--- ttr_form_chunks_200 <= 0.65
+|   |   |   |   |--- dep_dist_ccomp <= 0.83
+|   |   |   |   |   |--- weights: [1435.00, 554.00] class: 0
+|   |   |   |   |--- dep_dist_ccomp >  0.83
+|   |   |   |   |   |--- weights: [8246.00, 467.00] class: 0
+|   |   |   |--- ttr_form_chunks_200 >  0.65
+|   |   |   |   |--- avg_links_len <= 2.43
+|   |   |   |   |   |--- weights: [1070.00, 94.00] class: 0
+|   |   |   |   |--- avg_links_len >  2.43
+|   |   |   |   |   |--- weights: [28520.00, 343.00] class: 0
+|   |   |--- dep_dist_det >  12.17
+|   |   |   |--- aux_num_pers_dist_+ <= 8.01
+|   |   |   |   |--- dep_dist_ccomp <= 1.62
+|   |   |   |   |   |--- weights: [173.00, 363.00] class: 1
+|   |   |   |   |--- dep_dist_ccomp >  1.62
+|   |   |   |   |   |--- weights: [94.00, 10.00] class: 0
+|   |   |   |--- aux_num_pers_dist_+ >  8.01
+|   |   |   |   |--- aux_tense_dist_Pres <= 18.47
+|   |   |   |   |   |--- weights: [82.00, 64.00] class: 0
+|   |   |   |   |--- aux_tense_dist_Pres >  18.47
+|   |   |   |   |   |--- weights: [701.00, 67.00] class: 0
