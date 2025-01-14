@@ -20,7 +20,7 @@ python classification_dt.py 1 filter
 python classification_svm.py 1 all 
 python classification_dt.py 1 all
 
-echo "Iter 2lex"
+echo "Iter 2lex:"
 
 python classification_svm.py 2lex filter 
 python classification_dt.py 2lex filter 
