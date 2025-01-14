@@ -24,13 +24,16 @@ def load_data(filename):
     feature_labels = data["features"]
 
     if feat_filter == "all":
+        print("Keeping all features...")
         features_to_remove = []
     elif feat_filter == "filter":
+        print("Filtering features...")
         with open("TO_REMOVE.txt") as f:
             features_to_remove = f.read().splitlines()
 
     indexes_to_remove = [feature_labels.index(i) for i in features_to_remove]
     feature_labels = np.delete(feature_labels, indexes_to_remove)
+    # print(split)
     X = [x for x in data[f"X_{split}"]]  # x
     X = np.delete(X, indexes_to_remove, axis=1)
     y = data[f"y_{split}"]  # y
@@ -62,10 +65,13 @@ X_test, y_test, feature_labels = load_data(f"iter/{iter}/test_data.json.gz")
 iter = iter+f"/{feat_filter}" if feat_filter != "filter" else iter
 
 if svm_to_load:
-    model = joblib.load(f"iter/{iter}/svm_pipeline.joblib")
+    print(f"Loading svm at {svm_to_load}...")
+    model = joblib.load(svm_to_load)
 else:
+    print("Training new svm...")
     model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
     model.fit(X_train, y_train)
+    print(f"Training complete. Saving at iter/{iter}/svm_pipeline.joblib")
     joblib.dump(model, f"iter/{iter}/svm_pipeline.joblib")
     y_val_pred = model.predict(X_val)
     print("Validation Set Performance:")
@@ -76,9 +82,11 @@ print("Test Set Performance:")
 results = classification_report(y_test, y_test_pred, digits=4, output_dict=True)
 
 if svm_to_load:
+    print("Saving old svm results...")
     with open(f"iter/{iter}/previous_svm_res.json", "w") as f:
         json.dump(results, f)
 else:
+    print("Saving new svm results...")
     with open(f"iter/{iter}/svm_res.json", "w") as f:
         json.dump(results, f)
 
