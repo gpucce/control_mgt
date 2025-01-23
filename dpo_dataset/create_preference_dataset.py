@@ -70,16 +70,16 @@ def create_dataset(max_difference_df, generations_df_path, pUD_originals, pUD_sy
         "rejected": [],
     }
 
-    with open("dataset-max-feature-difference-top-10_iter_2_no_intersect.jsonl", "w") as output_file:
+    with open("dataset-max-feature-difference-top-10_iter_2.jsonl", "w") as output_file:
         with zipfile.ZipFile(generations_df_path) as zf:
             with io.TextIOWrapper(
-                    zf.open("generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.jsonl"),
+                    zf.open("generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256"),
                     encoding="utf-8") as f:
                 for row in f:
                     row = json.loads(row)
                     if int(row['id']) in identifiers:
-                        og_X = __extract_feature_for_prediction(row['id'] + ".conllu", pUD_originals, feature_labels)
-                        synth_X = __extract_feature_for_prediction(row['id'] + ".conllu", pUD_synth, feature_labels)
+                        og_X = __extract_feature_for_prediction(str(row['id']) + ".conllu", pUD_originals, feature_labels)
+                        synth_X = __extract_feature_for_prediction(str(row['id']) + ".conllu", pUD_synth, feature_labels)
                         og_pred = model.predict(og_X)[0]
                         synth_pred = model.predict(synth_X)[0]
 
@@ -111,11 +111,11 @@ if __name__ == "__main__":
     model, top_10_index, feature_labels = train_model_and_get_top_feature(args.profiling_data_path,
                                                                           filter=None if not args.feature_filter
                                                                           else "profiling_results/TO_REMOVE.txt")
-    max_difference_df = pd.read_csv("dpo_dataset/data-iter-2/max_difference_top_10_feature_dataset_no_repetition_tr_filtered_wrt_old.csv")
+    max_difference_df = pd.read_csv("dpo_dataset/data-iter-2/max_difference_top_10_feature_dataset_no_repetition_tr.csv")
 
     originals = pd.read_csv(f"data/profiling_data/xsum_original.zip", compression="zip", sep="\t")
     synth = pd.read_csv(f"data/profiling_data/generations_8b_2_iter_dpo.zip", compression="zip", sep="\t")
 
     create_dataset(max_difference_df,
-                   "data/data_2024_11_12/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.zip",
+                   "data/dpo_v1_data_2025_01_09/generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256.zip",
                    originals, synth, model, feature_labels)
