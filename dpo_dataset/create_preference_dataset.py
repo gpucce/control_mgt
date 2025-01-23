@@ -73,13 +73,13 @@ def create_dataset(max_difference_df, generations_df_path, pUD_originals, pUD_sy
     with open("dataset-max-feature-difference-top-10_iter_2_no_intersect.jsonl", "w") as output_file:
         with zipfile.ZipFile(generations_df_path) as zf:
             with io.TextIOWrapper(
-                    zf.open("generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256.jsonl"),
+                    zf.open("generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256"),
                     encoding="utf-8") as f:
                 for row in f:
                     row = json.loads(row)
                     if int(row['id']) in identifiers:
-                        og_X = __extract_feature_for_prediction(row['id'] + ".conllu", pUD_originals, feature_labels)
-                        synth_X = __extract_feature_for_prediction(row['id'] + ".conllu", pUD_synth, feature_labels)
+                        og_X = __extract_feature_for_prediction(str(row['id']) + ".conllu", pUD_originals, feature_labels)
+                        synth_X = __extract_feature_for_prediction(str(row['id']) + ".conllu", pUD_synth, feature_labels)
                         og_pred = model.predict(og_X)[0]
                         synth_pred = model.predict(synth_X)[0]
 
