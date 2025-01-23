@@ -12,6 +12,8 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDic
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 from datetime import datetime
 
+import os
+os.environ["WANDB_PROJECT"] = "control_mgt-dpo"
 
 def print_trainable_parameters(model):
         """
@@ -83,33 +85,38 @@ def get_tokenizer(model_name):
 
 if __name__ == "__main__":
     accelerator = get_accelerator()
-    model_name = "meta-llama/Llama-3.2-3B-Instruct"
-    model = get_quant_model(model_name)
+    device = accelerator.device()
+    model_name = "meta-llama/Llama-3.1-8B-Instruct"
 
-    # model = AutoModelForCausalLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
     tokenizer = get_tokenizer(model_name)
     dataset = load_dataset(
         "json",
         data_files="dpo_dataset/data/dataset-max-feature-difference-top-10_iter_1.zip",
         split="train")
+    
+    # dataset = dataset.select(range(100))
 
-    model = prepare_model_for_LoRA_training(model, accelerator)
+    # model = prepare_model_for_LoRA_training(model, accelerator)
     # Define the DPOConfig with your training parameters
     training_config = DPOConfig(
         output_dir="model",
-        warmup_steps=2,
-        per_device_train_batch_size=4,
+        warmup_ratio=0.2,
+        beta=0.01,
+        per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
-        learning_rate=5.0e-6,
+        lr_scheduler_type="cosine",
+        learning_rate=5e-7,
         bf16=True,
-        optim="paged_adamw_8bit",
         logging_dir="model/logs",
-        save_strategy="steps",
+        save_strategy="no",
         save_steps=100,
-        evaluation_strategy="steps",
+        evaluation_strategy="no",
         eval_steps=100,
         do_eval=True,
         num_train_epochs=1,
+        logging_steps=25,
+        log_on_each_node=False,
         run_name=f"test-llama{datetime.now().strftime('%Y-%m-%d-%H-%M')}"
     )
 
@@ -119,9 +126,11 @@ if __name__ == "__main__":
         args=training_config,
         train_dataset=dataset,
         eval_dataset=dataset,
-        tokenizer=tokenizer,
+        # tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     # Start training
     trainer.train()
-    trainer.save_state("dpo_dataset/model")
+    trainer.save_state()
+    trainer.save_model()

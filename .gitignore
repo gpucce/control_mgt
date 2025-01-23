@@ -167,10 +167,20 @@ cython_debug/
 #.idea/
 
 checkpoints-classifier
+checkpoints-dpo
+models-dpo
 wandb
 .vscode
 TODO.md
 notes.md
 guided_gen.poc.ipynb
+explore_preds.ipynb
+etc
+*.ipynb
+profiling
+preds-classifier
+*.sh
+profiling_ilc
+*.bak
 
 dpo_dataset/model/*
