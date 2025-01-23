@@ -73,7 +73,7 @@ def create_dataset(max_difference_df, generations_df_path, pUD_originals, pUD_sy
     with open("dataset-max-feature-difference-top-10_iter_2_no_intersect.jsonl", "w") as output_file:
         with zipfile.ZipFile(generations_df_path) as zf:
             with io.TextIOWrapper(
-                    zf.open("generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.jsonl"),
+                    zf.open("generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256.jsonl"),
                     encoding="utf-8") as f:
                 for row in f:
                     row = json.loads(row)
@@ -117,5 +117,5 @@ if __name__ == "__main__":
     synth = pd.read_csv(f"data/profiling_data/generations_8b_2_iter_dpo.zip", compression="zip", sep="\t")
 
     create_dataset(max_difference_df,
-                   "data/data_2024_11_12/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.zip",
+                   "data/dpo_v1_data_2025_01_09/generation_output_dpo_v1_full_model_xsum_temp_0.8_linguistic_False_informed-cut256.zip",
                    originals, synth, model, feature_labels)
