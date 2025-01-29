@@ -66,7 +66,6 @@ def main(args):
     os.makedirs(outdir, exist_ok=True)
     output_fn = os.path.join(outdir, f"{args.output}{('-' + args.note) if args.note != '' else ''}-{timestamp}.json")
 
-
     data_train, data_val, data_test = get_data(args, lines=True)
 
     if args.alldata:
@@ -101,11 +100,12 @@ def main(args):
 
     output_data = []
     for batch in batched(zip(prompts, messages, real_articles, llama_articles, ids), args.batch):
-        prompt_batch = [i[0] for i in batch]
-        message_batch = [i[1] for i in batch]
-        real_batch = [i[2] for i in batch]
-        llama_batch = [i[3] for i in batch]
-        id_batch = [i[4] for i in batch]
+        prompt_batch, message_batch, real_batch, llama_batch, id_batch = zip(*batch)
+        # prompt_batch = [i[0] for i in batch]
+        # message_batch = [i[1] for i in batch]
+        # real_batch = [i[2] for i in batch]
+        # llama_batch = [i[3] for i in batch]
+        # id_batch = [i[4] for i in batch]
 
         output_batch = model.generate(
             prompt_batch,
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--datapath", type=str, default="data/data_2024_11_12/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.zip")
-    parser.add_argument("--adapter_path", type=str, default="models-dpo/llama-3.1-8b_lora/control-iter1/2025-01-25-14-39")
+    parser.add_argument("--adapter_path", type=str, default="models-dpo/llama-3.1-8b_lora/adversarial-dpo-iter1-filtered/2025-01-28-18-49")
     parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--model_name", type=str, required=True)
