@@ -184,3 +184,5 @@ profiling_ilc
 *.bak
 
 dpo_dataset/model/*
+ilc_profiler/
+old/
