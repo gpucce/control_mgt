@@ -1,0 +1,96 @@
+import os
+import json
+import torch
+import pandas as pd
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from sklearn.metrics import classification_report
+from tqdm import tqdm
+from itertools import batched
+
+
+def get_data(datapath):
+    if datapath.endswith(".zip"):
+        data = pd.read_json(datapath, lines=True).to_dict(orient="records")
+    else:
+        data = json.load(open(datapath))
+    return data
+
+
+def mage_detect(logits, th=-3.08583984375):
+    # adapted from https://github.com/yafuly/MAGE/blob/7e8b52666659529c569487d5278673c3aa04fc61/deployment/utils.py#L280C15-L280C15
+
+    label2decisions = {
+        0: "machine-generated",
+        1: "human-written",
+    }
+
+    # is_machine = - logits[0][0].item()
+    is_machine = - logits[0].item()
+    if is_machine < th:
+        decision = 0    # machine generated
+    else:
+        decision = 1    # human written
+
+    decision_mapper = {
+        0: 1,
+        1: 0
+    }
+
+    # return label2decisions[decision]
+    return decision_mapper[decision]
+
+
+def main(args):
+    device = args.device
+    data = get_data(args.datapath)
+
+    tokenizer = AutoTokenizer.from_pretrained("yaful/MAGE")
+    clf = AutoModelForSequenceClassification.from_pretrained("yaful/MAGE").to(device)
+
+    output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "mage_detector", args.target)
+    print(f"- Evaluation mage INFO " + "-" * 25)
+    print(f"- storing results in: {output_dir}")
+    print(f"- target: {args.target}")
+    print(f"- num pairs: {len(data)}")
+    print("-" * 45)
+
+    hwt = [elem["human"] for elem in data] 
+    hwt_ids = [elem["doc-id"] for elem in data]
+    mgt = [elem[args.target] for elem in data]
+    mgt_ids = [elem["doc-id"] for elem in data]
+    
+    texts = hwt + mgt
+    all_ids = hwt_ids + mgt_ids
+    labels = [0 for i in range(len(hwt))] + [1 for i in range(len(mgt))]
+
+    preds = []
+    for batch_text in tqdm(batched(texts, args.batchsize), total=len(texts) // args.batchsize):
+        model_inputs = tokenizer(batch_text, max_length=args.max_length, truncation=True, padding=True, return_tensors="pt").to(device)
+        with torch.no_grad():
+            logits = clf(**model_inputs).logits
+        preds.extend(logits.cpu().numpy())
+    
+
+    hard_preds = [mage_detect(p) for p in preds]
+    metrics = classification_report(y_true=labels, y_pred=hard_preds, output_dict=True)
+    soft_0, soft_1 = zip(*preds)
+
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, "clf_metrics.json"), "w") as jf:
+        json.dump(metrics, jf)
+    
+    df_preds = pd.DataFrame(data={"doc-id": all_ids, "y_pred": hard_preds, "y_true": labels, "logits_0": soft_0, "logits_1": soft_1})
+    df_preds.to_csv(os.path.join(output_dir, "clf_preds.csv"), index=False)
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("--datapath", type=str, default="generation_code/generations/andrea-dpo-iter1-filtered/2025-01-28-18-49/xsum-testset-250128_223602.json")
+    parser.add_argument("--max_length", type=int, default=None)
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--target", type=str, default="llama")
+    parser.add_argument("--batchsize", type=int, default=64)
+    args = parser.parse_args()
+    main(args)
