@@ -90,9 +90,9 @@ def get_random_prompt_cita_anita(m):
 
 SYSTEM_PROMPTS_XSUM=[
     "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics",
-    "You are a journalist from the Wales writing for a national newspaper on a broad range of topics, with a focus on local news",
-    "You are a journalist from the United States writing for an international newspaper on a broad range of topics, Economics and Politics",
-    "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics, with a focus on Sports",
+    # "You are a journalist from the Wales writing for a national newspaper on a broad range of topics, with a focus on local news",
+    # "You are a journalist from the United States writing for an international newspaper on a broad range of topics, Economics and Politics",
+    # "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics, with a focus on Sports",
 ]
 
 # USER_PROMPTS_XSUM=[
