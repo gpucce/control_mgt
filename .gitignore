@@ -180,10 +180,13 @@ etc
 profiling
 preds-classifier
 *.sh
-profiling_ilc
 *.bak
 
 dpo_dataset/model/*
-ilc_profiler/
+# ilc_profiler/
 old/
 *.joblib
+ProfilingUD/
+ilc_profiler/ilc_profile_multip.py
+parsing.conllu.zip
+*_doc.out

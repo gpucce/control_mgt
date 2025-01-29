@@ -1,0 +1,107 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+import io
+import os 
+import stanza
+import json
+import zipfile
+import pandas as pd
+
+from multiprocessing import Pool
+from stanza.utils.conll import CoNLL
+from tqdm import tqdm
+from transformers import AutoTokenizer
+
+from ProfilingUD import ling_monitoring
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+def get_data(path):
+    if path.endswith(".json"):
+        data = json.load(open(path)) 
+    else:
+        data = pd.read_json(path, lines=True)
+        data = data.to_dict(orient="records")
+    return data
+
+
+def run_parser(data, method="dpo-llama", device="cuda"):
+    nlp = stanza.Pipeline("en", verbose=False, device=device, processors="tokenize,mwt,pos,lemma,depparse")
+
+    conllu_dict = {}
+    for line in tqdm(data):
+        doc_id = line["doc-id"]
+        text = line[method]
+        doc = nlp(text)
+        conllu_dict[doc_id] = CoNLL.convert_dict(doc.to_dict())
+    
+    return conllu_dict
+    
+
+def _io_save_coll(doc_id, conll_doc):
+    output = io.StringIO()
+    counter = 1
+    for sentence in conll_doc:
+        output.write("# sent_id = " + str(doc_id) + "_" + str(counter) + "\n")
+        output.write("# text = None" + "\n")
+        for token in sentence:
+            output.write("\t".join(token) + "\n")
+        output.write("\n")
+        counter += 1
+    result = output.getvalue()
+    output.close()
+    return result
+
+
+def process_chunk(args):
+    chunk, method, device = args
+    conllu_archive = run_parser(chunk, method=method, device=device)
+    return conllu_archive
+
+
+def main(args):
+    data = get_data(args.datapath)
+    if args.outdir is None:
+        parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
+    else:
+        parser_outdir = args.outdir
+    
+    if args.max_length is not None:
+        parser_outdir += f"-cut{args.max_length}"
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, token=os.getenv("MY_HF_TOKEN"))
+        texts = [t[args.method] for t in data]
+        texts = tokenizer.batch_decode(tokenizer(texts, max_length=256, truncation=True).input_ids, skip_special_tokens=True)
+        for i, t in enumerate(texts):
+            data[i][args.method] = t
+    
+    os.makedirs(parser_outdir, exist_ok=True)
+    
+    archive_fn = os.path.join(parser_outdir, "parsing.conllu.zip")
+    
+    print(f"- parser outdir: {parser_outdir}")
+    print(f"- parsing archive: {archive_fn}")
+
+    if not args.skip_parse:
+        conllu_archive = run_parser(data, method=args.method, device=args.device)
+        with zipfile.ZipFile(archive_fn, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for doc_id, data in conllu_archive.items():
+                out = _io_save_coll(doc_id=doc_id, conll_doc=data)
+                zipf.writestr(f"{doc_id}.conllu", out)
+
+    ling_monitoring.run(datapath=archive_fn, output_name=args.method, multisent=1, outdir=parser_outdir)
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("--datapath", type=str, default="generation_code/generations/adversarial-dpo-iter1-filtered/2025-01-28-18-49/xsum-alldata-250128_223602.json")
+    parser.add_argument("--outdir", type=str, default=None)
+    parser.add_argument("--skip_parse", action="store_true")
+    parser.add_argument("--method", type=str, default="dpo-llama-1st-iter")
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--max_length", type=int, default=None)
+    parser.add_argument("--tokenizer_name", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
+    parser.add_argument("--num_processes", type=int, default=1)
+    args = parser.parse_args()
+    main(args)
