@@ -9,7 +9,7 @@ import numpy as np
 
 from pprint import pprint as pp
 from sklearn.svm import LinearSVC
-from sklearn.preprocessing import MinMaxScaler 
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import classification_report
 from sklearn.utils import shuffle
@@ -30,6 +30,7 @@ def print_info_creation(args):
     print(f"- HWT text data path: {args.hwt_text}")
     print(f"- MGT generation method: {args.mgt_method}")
     print(f"- remove non-verbalized features: {args.filter}")
+    print(f"- svm feature processor: {args.feature_processor}")
 
     print(f"- adversarial dataset (ids) outdir: profiling_results/adversarial_dataset/{args.dataset_name}/selected_ids.csv")
 
@@ -107,12 +108,17 @@ def get_top_examples(originals, synths, feature, max_number_examples):
     return top_differences
 
 
-def get_clf(model_path=None):
+def get_clf(model_path=None, feature_processor="zscore"):
     if model_path is not None:
         print(f"- loading trained model from: {model_path}")
         model = joblib.load(model_path)
     else:
-        model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
+        if feature_processor == "zscore":
+            model = make_pipeline(StandardScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
+        elif feature_processor == "minmax":
+            model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
+        else:
+            raise NotImplementedError
     return model
 
 
@@ -232,6 +238,9 @@ def main(args):
     print_info_creation(args)
     np.random.seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
+    
+    if args.feature_processor == "zscore":
+        args.dataset_name += "-zscore"
 
     adversarial_ids_outdir = os.path.join("profiling_results", "adversarial_dataset", args.dataset_name)
     os.makedirs(adversarial_ids_outdir, exist_ok=True)
@@ -260,7 +269,7 @@ def main(args):
     X_te, Y_te, te_ids = get_split(profile_mgt, profile_hwt, idx=split_ids["te"])
 
     print(f"({X_tr.shape=},{Y_tr.shape=}) - ({X_te.shape=}, {Y_te.shape=})")
-    model = get_clf(args.model_path)
+    model = get_clf(args.model_path, feature_processor=args.feature_processor)
 
     if args.model_path is None:
         model.fit(X_tr, Y_tr)
@@ -347,6 +356,7 @@ if __name__ == "__main__":
     # parser.add_argument("--model_outdir", type=str, default="profiling_results/trained_svm/debug")
     parser.add_argument("--filter", action="store_true", help="remove non-verbalized features")
     parser.add_argument("--second_iter", action="store_true", help="set second-iter sampling strategy")
+    parser.add_argument("--feature_processor", type=str, default="zscore", help="set svm preprocessor (zscore, minmax, etc)")
     args = parser.parse_args()
 
     main(args)
