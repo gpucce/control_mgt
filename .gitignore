@@ -190,3 +190,4 @@ ProfilingUD/
 ilc_profiler/ilc_profile_multip.py
 parsing.conllu.zip
 *_doc.out
+nohup.out
