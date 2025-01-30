@@ -48,6 +48,10 @@ def get_dataset(dataset_name):
         raise NotImplementedError
     elif dataset_name == "adversarial-naive-dpo-iter1":
         _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-naive-cut256/adversarial_dpo_dataset.json", split="train")
+    elif dataset_name == "adversarial-dpo-iter1-filtered-zscore":
+        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-filtered-cut256-zscore/adversarial_dpo_dataset.json", split="train")
+    elif dataset_name == "adversarial-dpo-iter1-unfiltered-zscore":
+        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-unfiltered-cut256-zscore/adversarial_dpo_dataset.json", split="train")
     else:
         raise NotImplementedError
     
@@ -103,9 +107,9 @@ def get_output_dir(args, start_time, basedir="checkpoints-dpo"):
     return outdir
 
 
-def get_lora_config():
+def get_lora_config(rank=32):
     config = LoraConfig(
-        r=32,
+        r=rank,
         lora_alpha=16,
         target_modules=[
             "q_proj",
@@ -132,13 +136,13 @@ def main(args):
         if args.adapter_path is not None:
             lora_config = {"adapter_path": args.adapter_path} 
         else:
-            lora_config = get_lora_config()
+            lora_config = get_lora_config(rank=args.lora_rank)
     else:
         lora_config = None
 
     dataset = get_dataset(args.dataset)
     model, tokenizer = _get_model(args.model_name, pretrained_adapter=args.adapter_path, attn_impl=args.attn_impl, lora_config=lora_config, device=device, is_peft_trainable=True)
-    earlystop = EarlyStoppingCallback(early_stopping_patience=5)
+    earlystop = EarlyStoppingCallback(early_stopping_patience=10)
 
     outdir = get_output_dir(args, start_time=_start_time, basedir="checkpoints-dpo")
     print(f"- outdir: {outdir}")
@@ -242,11 +246,12 @@ if __name__ == "__main__":
     parser.add_argument("--max_length",         type=int,   default=256)
     parser.add_argument("--warmup_ratio",       type=float, default=0.2)
     parser.add_argument("--attn_impl",          type=str,   default="sdpa", choices=["eager", "flash_attention_2", "sdpa"])
-    parser.add_argument("--dataset",            type=str,   default="control-iter1")
+    parser.add_argument("--dataset",            type=str,   default="adversarial-dpo-iter1-filtered")
     parser.add_argument("--fsdp",               action="store_true")
     parser.add_argument("--nosave",             action="store_true")
     parser.add_argument("--precompute_ref",     action="store_true")
-    parser.add_argument("--wandb_project",       type=str, default="control_mgt-dpo")
+    parser.add_argument("--wandb_project",      type=str, default="control_mgt-dpo")
+    parser.add_argument("--lora_rank",          type=int, default=32)
 
     args = parser.parse_args()
     os.environ["WANDB_PROJECT"] = args.wandb_project
