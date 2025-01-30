@@ -1,3 +1,8 @@
+import warnings
+warnings.simplefilter(action='ignore')
+print("- NB: suppressing warnings!")
+
+import os
 import wandb
 import json
 import pandas as pd
@@ -10,7 +15,7 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig, AutoModel
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig, AutoModel, FlaxAutoModelForSequenceClassification
 from transformers import TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import PeftModel
 
@@ -25,9 +30,11 @@ class NewsDataset(Dataset):
             self,
             data,
             skip_nchars=0,
+            lowercase=False,
     ):
         self.data = data
         self.skip_nchars = skip_nchars
+        self.lowercase = lowercase
     
     def __getitem__(self, index):
         data = self.data.iloc[index]
@@ -36,6 +43,10 @@ class NewsDataset(Dataset):
             "text": data.text[self.skip_nchars:],
             "label": data.label
         }
+
+        if self.lowercase:
+            sample["text"] = sample["text"].lower()
+
         return sample
     
     def __len__(self):
@@ -109,6 +120,10 @@ def get_model(model_name, device="cuda"):
         # Loading supervised model. This loads the trained LoRA weights on top of MNTP model. Hence the final weights are -- Base model + MNTP (LoRA) + supervised (LoRA).
         model = PeftModel.from_pretrained(model, model_id)
         model = LLM2VecForSequenceClassification(base_model=model, num_labels=2, tokenizer=tokenizer).to(device)
+    elif "checkpoints-classifier" in model_name:
+        model_id = model_name
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
     else:
         raise NotImplementedError(f"model: {model_name} not implemented yet!")
     print(f"- Loaded model: {model_id}")
@@ -124,7 +139,7 @@ def compute_tokenized_lengths(data, tokenizer):
     return (r_mean, r_std, r_max, r_min), (f_mean, f_std, f_max, f_min)
     
 
-def create_dataset(df_data):
+def create_dataset(df_data, only_synth=False):
     df_real         = df_data[["real_article", "id", "source"]].rename(columns={"real_article": "text"})
     # df_real = df_real.iloc[:len(df_real) // 2, :]
     df_generated    = df_data[["generated_text", "id", "source"]].rename(columns={"generated_text": "text"})
@@ -133,27 +148,34 @@ def create_dataset(df_data):
     df_real["label"] = 0
     df_generated["label"] = 1
 
-    df_data = pd.concat([df_real, df_generated], ignore_index=True)
+    if not only_synth:
+        df_data = pd.concat([df_real, df_generated], ignore_index=True)
+    else:
+        df_data = df_generated
 
     return df_data
 
 
 def main(args):
-    data = pd.read_json(args.datapath, lines=True)
-    
-    selected_fname = (args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits/") + f".split.{args.num_samples}.json").replace("_temp0.8", "")
-    selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
-    datapath_othergen = args.datapath.replace("llama-3.1-70b", "llama-3.1-8b") if "llama-3.1-70b" in args.datapath else args.datapath.replace("llama-3.1-8b", "llama-3.1-70b")
-    data_other_gen = pd.read_json(datapath_othergen, lines=True)
+    if args.eval_only:
+        fast_eval_only(args)
+        exit()
 
+    data = pd.read_json(args.datapath, lines=True)
+    selected_fname = "data/splits/split." + str(args.num_samples) + ".json"
     selected = json.load(open(selected_fname))
-    selected_other_gen = json.load(open(selected_othergen_fname))
 
     tr_data = data[data["id"].isin(selected["tr"])]
     va_data = data[data["id"].isin(selected["val"])]
     te_data = data[data["id"].isin(selected["te"])]
 
-    te_data_other_gen = data_other_gen[data_other_gen["id"].isin(selected_other_gen["te"])]
+    if args.test_othergen:
+        selected_othergen_fname = selected_fname.replace("llama-3.1-8b", "llama-3.1-70b") if "llama3.1-8b" in selected_fname else selected_fname.replace("llama-3.1-70b", "llama-3.1-8b")
+        datapath_othergen = args.datapath.replace("llama-3.1-70b", "llama-3.1-8b") if "llama-3.1-70b" in args.datapath else args.datapath.replace("llama-3.1-8b", "llama-3.1-70b")
+        data_other_gen = pd.read_json(datapath_othergen, lines=True)
+        selected_other_gen = json.load(open(selected_othergen_fname))
+        te_data_other_gen = data_other_gen[data_other_gen["id"].isin(selected_other_gen["te"])]
+        te_data_other_gen = create_dataset(te_data_other_gen)
 
     # if args.num_samples is not None:
     #     selected_fname = args.datapath.rstrip(".jsonl").replace("data/generation_output_", "data/splits") + f".split.{args.num_samples}.json"
@@ -168,7 +190,6 @@ def main(args):
     tr_data = create_dataset(tr_data)
     va_data = create_dataset(va_data)
     te_data = create_dataset(te_data)
-    te_data_other_gen = create_dataset(te_data_other_gen)
 
     if args.wandb:
         import wandb
@@ -188,7 +209,9 @@ def main(args):
     tr_dataset = NewsDataset(tr_data, skip_nchars=args.skip_nchars)
     va_dataset = NewsDataset(va_data, skip_nchars=args.skip_nchars)
     te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
-    te_dataset_other_gen = NewsDataset(te_data_other_gen, skip_nchars=args.skip_nchars)
+    
+    if args.test_othergen:
+        te_dataset_other_gen = NewsDataset(te_data_other_gen, skip_nchars=args.skip_nchars)
 
     # splits = {}
     # for (_data, _name) in [(tr_data, "tr"), (va_data, "val"), (te_data, "te")]:
@@ -201,6 +224,12 @@ def main(args):
     #     json.dump(splits, f)
 
     model, tokenizer = get_model(model_name=args.model_name, device="cuda")
+
+    if args.drop_positions:
+        print("- freezing positional embeddings (zero-like)")
+        model.base_model.embeddings.position_embeddings.weight.data = torch.zeros_like(model.base_model.embeddings.position_embeddings.weight)
+        model.base_model.embeddings.position_embeddings.weight.requires_grad = False
+
 
     if args.stats:
         print("\nTraining Tokenized Stats: ")
@@ -230,7 +259,22 @@ def main(args):
         trainable_layers = [p_name for p_name, p in model.named_parameters() if p.requires_grad == True] 
         print(f"Trainable layers: {trainable_layers}")
 
-    output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
+    # output_folder = f"{args.model_name}_split{args.num_samples}_skip{args.skip_nchars}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_split{args.num_samples}_frozen/{args.datapath}" 
+
+    def get_output_folder(model_name, num_samples, skip_nchars, datapath, no_positions, freeze_backbone):
+        no_positions = "nopos" if no_positions else ""
+        skip_nchars = f"skip_{skip_nchars}" if skip_nchars != 0 else ""
+        freeze_backbone = "frozen" if freeze_backbone else ""
+        num_samples = f"split{num_samples}"
+        datapath = datapath.split("/")[-1].replace(".zip", "")
+
+        path = [elem for elem in [model_name, num_samples, no_positions, freeze_backbone, skip_nchars, datapath] if elem != ""]
+
+        output_folder = os.path.join(*path)
+        return output_folder
+    
+    output_folder = get_output_folder(model_name=args.model_name, num_samples=args.num_samples, skip_nchars=args.skip_nchars, datapath=args.datapath, no_positions=args.drop_positions, freeze_backbone=args.freeze_backbone)
+
     trainer_args = TrainingArguments(
         output_dir=f"checkpoints-classifier/{output_folder}",
         bf16=True,
@@ -253,6 +297,7 @@ def main(args):
         load_best_model_at_end=True,
         remove_unused_columns=False,
         save_total_limit=1,
+        eval_on_start=True,
     )
 
     callbacks = []
@@ -279,24 +324,123 @@ def main(args):
     trainer.train()
 
     test_results = trainer.predict(test_dataset=te_dataset)
-    test_results_other_generator = trainer.predict(test_dataset=te_dataset_other_gen, metric_key_prefix="test_othergen")
+    
+    if args.test_othergen:
+        test_results_other_generator = trainer.predict(test_dataset=te_dataset_other_gen, metric_key_prefix="test_othergen")
     
     from pprint import pprint as pp
     print("\nTest Results:")
-    pp({k: round(v, 2) for k, v in test_results.metrics.items()})
+    pp({k: round(v, 4) for k, v in test_results.metrics.items()})
 
-    print("\nTest Other Generator Results:")
-    pp({k: round(v, 2) for k, v in test_results_other_generator.metrics.items()})
+    if args.test_othergen:
+        print("\nTest Other Generator Results:")
+        pp({k: round(v, 4) for k, v in test_results_other_generator.metrics.items()})
 
     if args.wandb:
         wandb.finish()
+    
+
+def fast_eval_only(args):
+    from transformers.utils.logging import disable_progress_bar
+    disable_progress_bar()
+
+    data = pd.read_json(args.datapath, lines=True)
+    selected_fname = "data/splits/split." + str(args.num_samples) + ".json"
+    selected = json.load(open(selected_fname))
+
+    te_data = data[data["id"].isin(selected["te"])]
+    te_data = create_dataset(te_data, only_synth=args.only_synth)
+
+    te_dataset = NewsDataset(te_data, skip_nchars=args.skip_nchars)
+    print(f"\nDataset Statistics:\n- Testing Data documents:\t{len(te_data)}\t({Counter(te_data.label)})\n")
+    
+    model, tokenizer = get_model(model_name=args.model_name, device="cuda")
+
+    preds_fname = get_preds_fname(args.model_name, args.datapath, args.max_length, args.only_synth, args.skip_nchars)
+    output_folder = f"{args.model_name}/{args.datapath}" if not args.freeze_backbone else f"{args.model_name}_frozen/{args.datapath}" 
+    trainer_args = TrainingArguments(
+        output_dir=f"eval_logs/{output_folder}",
+        bf16=True,
+        learning_rate=args.lr,
+        num_train_epochs=args.nepochs,
+        logging_steps=10,
+        per_device_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
+        lr_scheduler_type="cosine",
+        warmup_ratio=0.1,
+        save_strategy="steps",
+        eval_strategy="steps",
+        eval_steps=25,
+        save_steps=25,
+        weight_decay=0.0,
+        run_name=f"{args.model_name}" if not args.freeze_backbone else f"{args.model_name}.frozen",
+        metric_for_best_model="f1",
+        greater_is_better=True,
+        report_to="wandb" if args.wandb else "none",
+        load_best_model_at_end=True,
+        remove_unused_columns=False,
+        save_total_limit=1,
+        do_train=False,
+    )
+
+    if "llm2vec-" in args.model_name:
+        collate_fn = LLM2VecCustomCollate(tokenizer, max_length=args.max_length, doc_max_length=412)
+    else:
+        collate_fn = CustomCollate(tokenizer, max_length=args.max_length)
+
+    trainer = Trainer(
+        model=model,
+        tokenizer=tokenizer,
+        data_collator=collate_fn,
+        compute_metrics=custom_compute_metrics,
+        args=trainer_args,
+    )
+
+
+    test_results = trainer.predict(test_dataset=te_dataset)
+
+    preds = test_results.predictions.argmax(axis=1)
+
+    df_pred = pd.DataFrame(columns=["id", "pred", "label"])
+    if args.only_synth:
+        df_pred["id"] = selected["te"]
+    else:
+        df_pred["id"] = selected["te"] * 2
+    df_pred["pred"] = preds
+    df_pred["label"] = test_results.label_ids
+
+    if not args.nosave:
+        df_pred.to_csv(preds_fname, index=False)
+    
+    from pprint import pprint as pp
+    print("\nTest Results:")
+    pp({k: round(v, 4) for k, v in test_results.metrics.items()})
+
+    import shutil
+    shutil.rmtree("eval_logs")   # remove eval_logs dir created by trainer (it is an empty dir since we're only doing eval in here...)
+
+    return
+
+
+def get_preds_fname(model_name, datapath, max_length, only_synth, skip_nchars, basedir="preds-classifier"):
+    if "checkpoints-classifier" in model_name:
+        _modelname = model_name.split("/")
+        _datapath = datapath.split("/")
+        if skip_nchars != 0:
+            preds_fname = os.path.join(basedir, _modelname[1], f"{_datapath[1]}_skip{skip_nchars}")
+        else:
+            preds_fname = os.path.join(basedir, _modelname[1], _datapath[1])
+        os.makedirs(preds_fname, exist_ok=True)
+        preds_fname = os.path.join(preds_fname, f"preds_{_modelname[-1]}.{_datapath[-1].replace('.zip', '')}.{max_length}{'.only_synth' if only_synth else ''}.csv")
+    else:
+        raise NotImplementedError
+    return preds_fname 
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--model_name", type=str, required=False,
-                        choices=["roberta", "deberta", "llm2vec-llama", "llm2vec-mistral"], default="deberta")
-    parser.add_argument("--datapath", type=str, required=False, default="data/generation_output_llama-3.1-70b-instruct-hf_xsum_informed.jsonl")
+    parser.add_argument("--model_name", type=str, required=False, default="deberta")
+    parser.add_argument("--datapath", type=str, required=False, default="data/data_2024_11_08/generation_output_llama-3.1-70b-instruct-hf_xsum_temp0.8_informed.zip")
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_length", type=int, default=256)
@@ -306,6 +450,11 @@ if __name__ == "__main__":
     parser.add_argument("--num_samples", type=int, default=100000)
     parser.add_argument("--patience", type=int, default=None)
     parser.add_argument("--freeze_backbone", action="store_true")
+    parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--wandb", action="store_true")
+    parser.add_argument("--test_othergen", action="store_true", help="test on other generator too")     # TODO
+    parser.add_argument("--only_synth", action="store_true", help="evaluate only on synthetic texts")
+    parser.add_argument("--nosave", action="store_true")
+    parser.add_argument("--drop_positions", action="store_true")
     args = parser.parse_args()
     main(args)

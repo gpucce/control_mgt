@@ -1,0 +1,12 @@
+{
+  "dataset_name": "xsum/dpo-iter1-filtered-cut256",
+  "split_file": "data/splits/split.100000.json",
+  "profile_path_mgt": "ilc_profiler/parsed/xsum/vanilla/llama-cut256/llama_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/xsum/vanilla/human-cut256/human_doc.out",
+  "mgt_text": "data/xsum_generations/vanilla/xsum-generations-cut256.zip",
+  "mgt_method": "llama",
+  "hwt_text": "data/xsum_generations/vanilla/xsum-generations-cut256.zip",
+  "model_path": null,
+  "filter": true,
+  "second_iter": false
+}
