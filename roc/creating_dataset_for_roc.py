@@ -33,7 +33,7 @@ def plot_roc_curve(y_gold, y_pred, title, output_path):
 if __name__  == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("filename", help="Path to the evaluations folder")
+    parser.add_argument("--filename", "-f", help="Path to the evaluations folder", default="evaluation_code/evaluations/adversarial-dpo-iter1-filtered/2025-01-28-18-49")
     parser.add_argument("--output", "-o", default="roc/plots", help="Path where to store the plots")
 
     args = parser.parse_args()
