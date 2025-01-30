@@ -77,7 +77,10 @@ def main(args):
     
     os.makedirs(parser_outdir, exist_ok=True)
     
-    archive_fn = os.path.join(parser_outdir, "parsing.conllu.zip")
+    if args.testset_only:
+        archive_fn = os.path.join(parser_outdir, "testset_parsing.conllu.zip")
+    else:
+        archive_fn = os.path.join(parser_outdir, "parsing.conllu.zip")
     
     print(f"- parser outdir: {parser_outdir}")
     print(f"- parsing archive: {archive_fn}")
@@ -103,5 +106,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", type=int, default=None)
     parser.add_argument("--tokenizer_name", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
     parser.add_argument("--num_processes", type=int, default=1)
+    parser.add_argument("--testset_only", action="store_true")
     args = parser.parse_args()
     main(args)
