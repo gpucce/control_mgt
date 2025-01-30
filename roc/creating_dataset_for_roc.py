@@ -1,43 +1,19 @@
-import json
+import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, classification_report
+import os
+
+def process_dataset(folder_path, output_path):
+    detectors = [folder.name for folder in os.scandir(folder_path) if folder.is_dir()]
+    for detector in detectors:
+        iters = [folder.name for folder in os.scandir(os.path.join(folder_path, detector)) if folder.is_dir()]
+        for iter in iters:
+            prediction_file = os.path.join(folder_path, detector, iter, "clf_preds.csv")
+            df = pd.read_csv(prediction_file)
+            plot_roc_curve(df["y_true"], df['y_pred'], f"Roc Curve of {detector}: Human vs {iter}", output_path)
 
 
-def process_dataset(dataset, llama_column):
-    mage_y_gold = []
-    mage_y_pred = []
-    radar_y_gold = []
-    radar_y_pred = []
-    detectaive_y_gold = []
-    detectaive_y_pred = []
-    with open(dataset) as input_file:
-        for doc in json.loads(input_file.read()):
-            line = doc
-            
-            # Human texts
-            mage_y_gold.append(0)
-            radar_y_gold.append(0)
-            detectaive_y_gold.append(0)
-            
-            mage_y_pred.append(0 if line['human-mage-pred'] == "human-written" else 1)
-            radar_y_pred.append(0 if line['human-radar-pred'] == "human-written" else 1)
-            detectaive_y_pred.append(0 if line['human-detectaive-pred'] == "human-written" or line['human-detectaive-pred'] == "human-written, machine-polished" else 1)
-            
-            # Llama texts
-            mage_y_gold.append(1)
-            radar_y_gold.append(1)
-            detectaive_y_gold.append(1)
-            
-            mage_y_pred.append(0 if line[f'{llama_column}-mage-pred'] == "human-written" else 1)
-            radar_y_pred.append(0 if line[f'{llama_column}-radar-pred'] == "human-written" else 1)
-            detectaive_y_pred.append(0 if line[f'{llama_column}-detectaive-pred'] == "human-written" or line[f'{llama_column}-detectaive-pred'] == "human-written, machine-polished" else 1)
-    
-    plot_roc_curve(mage_y_gold, mage_y_pred, f"Mage Roc on iter {llama_column}")
-    plot_roc_curve(radar_y_gold, radar_y_pred, f"Radar Roc on iter {llama_column}")
-    plot_roc_curve(detectaive_y_gold, detectaive_y_pred, f"Detectaive Roc on iter {llama_column}")
-
-
-def plot_roc_curve(y_gold, y_pred, title):
+def plot_roc_curve(y_gold, y_pred, title, output_path):
     fpr, tpr, _ = roc_curve(y_gold, y_pred)
     roc_auc = auc(fpr, tpr)
     print(classification_report(y_true=y_gold, y_pred=y_pred))
@@ -51,13 +27,14 @@ def plot_roc_curve(y_gold, y_pred, title):
     plt.title(title)
     plt.legend(loc="lower right")
     plt.tight_layout()
-    plt.savefig(title + ".png")
+    plt.savefig(os.path.join(output_path, title + ".png"))
 
 
 if __name__  == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("filename", help="Path to the jsonl file containing the documents and the predictions")
+    parser.add_argument("filename", help="Path to the evaluations folder")
+    parser.add_argument("--output", "-o", default="roc/plots", help="Path where to store the plots")
 
     args = parser.parse_args()
-    process_dataset(args.filename, "dpo-llama-1st-iter")
+    process_dataset(args.filename, args.output)
