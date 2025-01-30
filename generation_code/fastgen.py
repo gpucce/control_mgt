@@ -46,7 +46,8 @@ def get_model(model_name, adapter_path=None, device="cuda"):
     
     return model, tokenizer
 
-def get_vllm_model(model_name, enable_lora=False):
+
+def get_vllm_model(model_name, enable_lora=False, max_tokens=1024):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = LLM(
         model=model_name,
@@ -54,7 +55,7 @@ def get_vllm_model(model_name, enable_lora=False):
         enable_lora=enable_lora,
         max_lora_rank=64,
         dtype=torch.bfloat16)
-    sample_params = SamplingParams(max_tokens=1024, min_tokens=256)
+    sample_params = SamplingParams(max_tokens=max_tokens, min_tokens=256)
     return model, tokenizer, sample_params
 
 
@@ -88,7 +89,11 @@ def main(args):
     ids = data.id
     real_articles = data.real_article
     llama_articles = data.generated_text
-    model, tokenizer, sample_params = get_vllm_model(model_name=args.model, enable_lora=True if args.adapter_path is not None else False)
+    model, tokenizer, sample_params = get_vllm_model(
+        model_name=args.model,
+        enable_lora=True if args.adapter_path is not None else False,
+        max_tokens=args.max_tokens
+        )
 
     messages = data.title.values
     prompt_func = get_random_prompt_xsum
@@ -101,11 +106,6 @@ def main(args):
     output_data = []
     for batch in batched(zip(prompts, messages, real_articles, llama_articles, ids), args.batch):
         prompt_batch, message_batch, real_batch, llama_batch, id_batch = zip(*batch)
-        # prompt_batch = [i[0] for i in batch]
-        # message_batch = [i[1] for i in batch]
-        # real_batch = [i[2] for i in batch]
-        # llama_batch = [i[3] for i in batch]
-        # id_batch = [i[4] for i in batch]
 
         output_batch = model.generate(
             prompt_batch,
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("--datapath", type=str, default="data/data_2024_11_12/generation_output_llama-3.1-8b-instruct-hf_xsum_temp0.8_informed_cut256.zip")
+    parser.add_argument("--datapath", type=str, default="data/xsum_generations/vanilla/xsum-generations.zip")
     parser.add_argument("--adapter_path", type=str, default="models-dpo/llama-3.1-8b_lora/adversarial-dpo-iter1-filtered/2025-01-28-18-49")
     parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
     parser.add_argument("--batch", type=int, default=8)
@@ -147,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--alldata", action="store_true")
     parser.add_argument("--test_num_samples", type=int, default=None)
+    parser.add_argument("--max_tokens", type=int, default=1024)
 
     args = parser.parse_args()
     main(args)
