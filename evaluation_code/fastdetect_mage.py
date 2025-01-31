@@ -26,7 +26,7 @@ def mage_detect(logits, th=-3.08583984375):
     }
 
     # is_machine = - logits[0][0].item()
-    is_machine = - logits[0].item()
+    is_machine = - logits[0].item()         # we are iterating over one single prediction at the time (so we drop the second indexing [0])
     if is_machine < th:
         decision = 0    # machine generated
     else:
@@ -37,8 +37,7 @@ def mage_detect(logits, th=-3.08583984375):
         1: 0
     }
 
-    # return label2decisions[decision]
-    return decision_mapper[decision]
+    return is_machine, decision_mapper[decision]
 
 
 def main(args):
@@ -72,15 +71,14 @@ def main(args):
         preds.extend(logits.cpu().numpy())
     
 
-    hard_preds = [mage_detect(p) for p in preds]
+    soft_conf_mgt, hard_preds = zip(*[mage_detect(p) for p in preds])
     metrics = classification_report(y_true=labels, y_pred=hard_preds, output_dict=True)
-    soft_0, soft_1 = zip(*preds)
 
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, "clf_metrics.json"), "w") as jf:
         json.dump(metrics, jf)
     
-    df_preds = pd.DataFrame(data={"doc-id": all_ids, "y_pred": hard_preds, "y_true": labels, "logits_0": soft_0, "logits_1": soft_1})
+    df_preds = pd.DataFrame(data={"doc-id": all_ids, "y_pred": hard_preds, "y_true": labels, "conf_mgt": soft_conf_mgt})
     df_preds.to_csv(os.path.join(output_dir, "clf_preds.csv"), index=False)
 
 
