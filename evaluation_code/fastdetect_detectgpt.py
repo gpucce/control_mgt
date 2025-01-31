@@ -61,8 +61,6 @@ def __load_base_model_and_tokenizer(name):
     if "facebook/opt-" in name:
         print("Using non-fast tokenizer for OPT")
         optional_tok_kwargs['fast'] = False
-    if args.dataset in ['pubmed']:
-        optional_tok_kwargs['padding_side'] = 'left'
     base_tokenizer = transformers.AutoTokenizer.from_pretrained(name, **optional_tok_kwargs)
     base_tokenizer.pad_token_id = base_tokenizer.eos_token_id
     return base_model, base_tokenizer
@@ -180,14 +178,10 @@ def perturb_texts(texts, span_length, pct, ceil_pct=False):
     return outputs
 
 # sample from base_model using ****only**** the first 30 tokens in each example as context
-def sample_from_model(texts, min_words=55, prompt_tokens=30):
+def sample_from_model(texts, min_words=30, prompt_tokens=30):
     # encode each text as a list of token ids
-    if args.dataset == 'pubmed':
-        texts = [t[:t.index(SEPARATOR)] for t in texts]
-        all_encoded = base_tokenizer(texts, return_tensors="pt", padding=True).to(DEVICE)
-    else:
-        all_encoded = base_tokenizer(texts, return_tensors="pt", padding=True).to(DEVICE)
-        all_encoded = {key: value[:, :prompt_tokens] for key, value in all_encoded.items()}
+    all_encoded = base_tokenizer(texts, return_tensors="pt", padding=True).to(DEVICE)
+    all_encoded = {key: value[:, :prompt_tokens] for key, value in all_encoded.items()}
 
     
     decoded = ['' for _ in range(len(texts))]
@@ -205,7 +199,7 @@ def sample_from_model(texts, min_words=55, prompt_tokens=30):
             sampling_kwargs['top_p'] = args.top_p
         elif args.do_top_k:
             sampling_kwargs['top_k'] = args.top_k
-        min_length = 50 if args.dataset in ['pubmed'] else 150
+        min_length = 50
         outputs = base_model.generate(**all_encoded, min_length=min_length, max_length=200, do_sample=True, **sampling_kwargs, pad_token_id=base_tokenizer.eos_token_id, eos_token_id=base_tokenizer.eos_token_id)
         decoded = base_tokenizer.batch_decode(outputs, skip_special_tokens=True)
         tries += 1
@@ -223,12 +217,9 @@ def generate_samples(raw_data, batch_size):
     for batch in range(len(raw_data) // batch_size):
         print('Generating samples for batch', batch, 'of', len(raw_data) // batch_size)
         original_text = raw_data[batch * batch_size:(batch + 1) * batch_size]
-        sampled_text = sample_from_model(original_text, min_words=30 if args.dataset in ['pubmed'] else 55)
+        sampled_text = sample_from_model(original_text, min_words=30)
 
         for o, s in zip(original_text, sampled_text):
-            if args.dataset == 'pubmed':
-                s = truncate_to_substring(s, 'Question:', 2)
-                o = o.replace(SEPARATOR, ' ')
 
             o, s = trim_to_shorter_length(o, s)
 
@@ -273,10 +264,8 @@ def generate_data(dataset, key = "real"):
 
     data = data[:5_000]
 
-    # keep only examples with <= 512 tokens according to mask_tokenizer
-    # this step has the extra effect of removing examples with low-quality/garbage content
-    tokenized_data = preproc_tokenizer(data)
-    data = [x for x, y in zip(data, tokenized_data["input_ids"]) if len(y) <= 512]
+    tokenized_data = base_tokenizer(data, truncation=True, max_length=max_length)
+    data = base_tokenizer.batch_decode(tokenized_data['input_ids'], skip_special_tokens=True)
 
     # print stats about remainining data
     print(f"Total number of samples: {len(data)}")
@@ -384,7 +373,7 @@ def run_perturbation_experiment(results, criterion, span_length=10, n_perturbati
 
 
 def main(args):
-    global  base_model, mask_model, base_tokenizer, preproc_tokenizer, mask_tokenizer, FILL_DICTIONARY, mask_filling_model_name, n_samples, batch_size, n_perturbation_rounds, n_similarity_samples, data
+    global  base_model, mask_model, base_tokenizer, preproc_tokenizer, mask_tokenizer, FILL_DICTIONARY, mask_filling_model_name, n_samples, batch_size, n_perturbation_rounds, n_similarity_samples, data, max_length
     output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "detect-gpt_detector", args.target)
     
     with open(args.datapath, "r") as input_file:
@@ -416,6 +405,7 @@ def main(args):
     n_perturbations = int(args.n_perturbations)
     n_perturbation_rounds = args.n_perturbation_rounds
     n_similarity_samples = args.n_similarity_samples
+    max_length = args.max_length
 
     # generic generative model
     base_model, base_tokenizer = __load_base_model_and_tokenizer(args.base_model_name)
@@ -441,7 +431,6 @@ def main(args):
     outputs = []
     
     for key in ['real', 'sample']: 
-        print(f'Loading dataset {args.dataset}...')
         data = generate_data(dataset, key)
 
         perturbation_results = get_perturbation_results(args.span_length, n_perturbations, n_samples)
@@ -478,18 +467,17 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--datapath", type=str, default="generation_code/generations/adversarial-dpo-iter1-filtered/2025-01-28-18-49/xsum-testset-250128_223602.json")
-    parser.add_argument("--max_length", type=int, default=None)
+    parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--target", type=str, default="llama")
     parser.add_argument("--batchsize", type=int, default=64)
     
     parser.add_argument("--no_normalization", action='store_true')
-    parser.add_argument('--dataset', type=str, default="xsum")
     parser.add_argument('--dataset_key', type=str, default="real")
     parser.add_argument('--pct_words_masked', type=float, default=0.3) # pct masked is actually pct_words_masked * (span_length / (span_length + 2 * buffer_size))
     parser.add_argument('--span_length', type=int, default=2)
     parser.add_argument('--n_samples', type=int, default=100)
-    parser.add_argument('--n_perturbations', type=int, default="100")
+    parser.add_argument('--n_perturbations', type=int, default="1")
     parser.add_argument('--n_perturbation_rounds', type=int, default=1)
     parser.add_argument('--base_model_name', type=str, default="openai-community/gpt2")
     parser.add_argument('--mask_filling_model_name', type=str, default="t5-large")
