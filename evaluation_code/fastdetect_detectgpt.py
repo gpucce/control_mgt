@@ -32,8 +32,8 @@ def __threshold(num):
 
 def classification_report_detectgpt(real_preds, sample_preds):
     y_pred = list(map(__threshold,real_preds)) + list(map(__threshold,sample_preds))
-    print(classification_report(y_true=[0]*len(real_preds) + [1]*len(sample_preds), 
-                                y_pred=y_pred))
+    return classification_report(y_true=[0]*len(real_preds) + [1]*len(sample_preds), 
+                                y_pred=y_pred, output_dict=True)
 
 def get_roc_metrics(real_preds, sample_preds):
     fpr, tpr, _ = roc_curve([0] * len(real_preds) + [1] * len(sample_preds), real_preds + sample_preds)
@@ -79,8 +79,7 @@ def __load_mask_model():
     print('MOVING MASK MODEL TO GPU...', end='', flush=True)
 
     base_model.cpu()
-    if not args.random_fills:
-        mask_model.to(DEVICE)
+    mask_model.to(DEVICE)
         
 def replace_masks(texts):
     n_expected = count_masks(texts)
@@ -150,52 +149,24 @@ def apply_extracted_fills(masked_texts, extracted_fills):
 
 
 def perturb_texts_(texts, span_length, pct, ceil_pct=False):
-    if not args.random_fills:
-        masked_texts = [tokenize_and_mask(x, span_length, pct, ceil_pct) for x in texts]
+    masked_texts = [tokenize_and_mask(x, span_length, pct, ceil_pct) for x in texts]
+    raw_fills = replace_masks(masked_texts)
+    extracted_fills = extract_fills(raw_fills)
+    perturbed_texts = apply_extracted_fills(masked_texts, extracted_fills)
+
+    # Handle the fact that sometimes the model doesn't generate the right number of fills and we have to try again
+    attempts = 1
+    while '' in perturbed_texts:
+        idxs = [idx for idx, x in enumerate(perturbed_texts) if x == '']
+        print(f'WARNING: {len(idxs)} texts have no fills. Trying again [attempt {attempts}].')
+        masked_texts = [tokenize_and_mask(x, span_length, pct, ceil_pct) for idx, x in enumerate(texts) if idx in idxs]
         raw_fills = replace_masks(masked_texts)
         extracted_fills = extract_fills(raw_fills)
-        perturbed_texts = apply_extracted_fills(masked_texts, extracted_fills)
-
-        # Handle the fact that sometimes the model doesn't generate the right number of fills and we have to try again
-        attempts = 1
-        while '' in perturbed_texts:
-            idxs = [idx for idx, x in enumerate(perturbed_texts) if x == '']
-            print(f'WARNING: {len(idxs)} texts have no fills. Trying again [attempt {attempts}].')
-            masked_texts = [tokenize_and_mask(x, span_length, pct, ceil_pct) for idx, x in enumerate(texts) if idx in idxs]
-            raw_fills = replace_masks(masked_texts)
-            extracted_fills = extract_fills(raw_fills)
-            new_perturbed_texts = apply_extracted_fills(masked_texts, extracted_fills)
-            for idx, x in zip(idxs, new_perturbed_texts):
-                perturbed_texts[idx] = x
-            attempts += 1
-    else:
-        if args.random_fills_tokens:
-            # tokenize base_tokenizer
-            tokens = base_tokenizer(texts, return_tensors="pt", padding=True).to(DEVICE)
-            valid_tokens = tokens.input_ids != base_tokenizer.pad_token_id
-            replace_pct = args.pct_words_masked * (args.span_length / (args.span_length + 2 * args.buffer_size))
-
-            # replace replace_pct of input_ids with random tokens
-            random_mask = torch.rand(tokens.input_ids.shape, device=DEVICE) < replace_pct
-            random_mask &= valid_tokens
-            random_tokens = torch.randint(0, base_tokenizer.vocab_size, (random_mask.sum(),), device=DEVICE)
-            # while any of the random tokens are special tokens, replace them with random non-special tokens
-            while any(base_tokenizer.decode(x) in base_tokenizer.all_special_tokens for x in random_tokens):
-                random_tokens = torch.randint(0, base_tokenizer.vocab_size, (random_mask.sum(),), device=DEVICE)
-            tokens.input_ids[random_mask] = random_tokens
-            perturbed_texts = base_tokenizer.batch_decode(tokens.input_ids, skip_special_tokens=True)
-        else:
-            masked_texts = [tokenize_and_mask(x, span_length, pct, ceil_pct) for x in texts]
-            perturbed_texts = masked_texts
-            # replace each <extra_id_*> with args.span_length random words from FILL_DICTIONARY
-            for idx, text in enumerate(perturbed_texts):
-                filled_text = text
-                for fill_idx in range(count_masks([text])[0]):
-                    fill = random.sample(FILL_DICTIONARY, span_length)
-                    filled_text = filled_text.replace(f"<extra_id_{fill_idx}>", " ".join(fill))
-                assert count_masks([filled_text])[0] == 0, "Failed to replace all masks"
-                perturbed_texts[idx] = filled_text
-
+        new_perturbed_texts = apply_extracted_fills(masked_texts, extracted_fills)
+        for idx, x in zip(idxs, new_perturbed_texts):
+            perturbed_texts[idx] = x
+        attempts += 1
+    
     return perturbed_texts
         
 def perturb_texts(texts, span_length, pct, ceil_pct=False):
@@ -363,10 +334,10 @@ def get_perturbation_results(span_length=10, n_perturbations=1, n_samples=500):
 
 def run_perturbation_experiment(results, criterion, span_length=10, n_perturbations=1, n_samples=500):
     # compute diffs with perturbed
-    predictions = {'real': [], 'samples': []}
+    predictions = {'originals': [], 'samples': []}
     for res in results:
         if criterion == 'd':
-            predictions['real'].append(res['original_ll'] - res['perturbed_original_ll'])
+            predictions['originals'].append(res['original_ll'] - res['perturbed_original_ll'])
             predictions['samples'].append(res['sampled_ll'] - res['perturbed_sampled_ll'])
         elif criterion == 'z':
             if res['perturbed_original_ll_std'] == 0:
@@ -379,12 +350,12 @@ def run_perturbation_experiment(results, criterion, span_length=10, n_perturbati
                 print("WARNING: std of perturbed sampled is 0, setting to 1")
                 print(f"Number of unique perturbed sampled texts: {len(set(res['perturbed_sampled']))}")
                 print(f"Sampled text: {res['sampled']}")
-            predictions['real'].append((res['original_ll'] - res['perturbed_original_ll']) / res['perturbed_original_ll_std'])
+            predictions['originals'].append((res['original_ll'] - res['perturbed_original_ll']) / res['perturbed_original_ll_std'])
             predictions['samples'].append((res['sampled_ll'] - res['perturbed_sampled_ll']) / res['perturbed_sampled_ll_std'])
 
-    fpr, tpr, roc_auc = get_roc_metrics(predictions['real'], predictions['samples'])
-    p, r, pr_auc = get_precision_recall_metrics(predictions['real'], predictions['samples'])
-    classification_report_detectgpt(predictions['real'], predictions['samples'])
+    fpr, tpr, roc_auc = get_roc_metrics(predictions['originals'], predictions['samples'])
+    p, r, pr_auc = get_precision_recall_metrics(predictions['originals'], predictions['samples'])
+    print(classification_report_detectgpt(predictions['originals'], predictions['samples']))
     name = f'perturbation_{n_perturbations}_{criterion}'
     print(f"{name} ROC AUC: {roc_auc}, PR AUC: {pr_auc}")
     return {
@@ -416,14 +387,13 @@ def main(args):
     global  base_model, mask_model, base_tokenizer, preproc_tokenizer, mask_tokenizer, FILL_DICTIONARY, mask_filling_model_name, n_samples, batch_size, n_perturbation_rounds, n_similarity_samples, data
     output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "detect-gpt_detector", args.target)
     
-    with open("xsum-testset-250128_223602.json", "r") as input_file:
+    with open(args.datapath, "r") as input_file:
         temp = json.loads(input_file.read())
     
     dataset = datasets.Dataset.from_dict({
         'real': [el["human"] for el in temp],
         'sample': [el[args.target] for el in temp],
         'doc_id': [elem["doc-id"] for elem in temp],
-        'mgt_id': [elem["doc-id"] for elem in temp]
     })
     
     del temp
@@ -439,21 +409,11 @@ def main(args):
     # create it if it doesn't exist
     precision_string = "int8" if args.int8 else ("fp16" if args.half else "fp32")
     sampling_string = "top_k" if args.do_top_k else ("top_p" if args.do_top_p else "temp")
-    output_subfolder = f"{args.output_name}/" if args.output_name else ""
-    scoring_model_string = (f"-{args.scoring_model_name}" if args.scoring_model_name else "").replace('/', '_')
-    SAVE_FOLDER = f"tmp_results/{output_subfolder}{args.base_model_name}{scoring_model_string}-{args.mask_filling_model_name}-{sampling_string}/{precision_string}-{args.pct_words_masked}-{args.n_perturbation_rounds}-{args.dataset}-{args.n_samples}"
-    if not os.path.exists(SAVE_FOLDER):
-        os.makedirs(SAVE_FOLDER)
-    print(f"Saving results to absolute path: {os.path.abspath(SAVE_FOLDER)}")
-
-    # write args to file
-    with open(os.path.join(SAVE_FOLDER, "args.json"), "w") as f:
-        json.dump(args.__dict__, f, indent=4)
 
     mask_filling_model_name = args.mask_filling_model_name
     n_samples = args.n_samples
     batch_size = args.batch_size
-    n_perturbation_list = [int(x) for x in args.n_perturbation_list.split(",")]
+    n_perturbations = int(args.n_perturbations)
     n_perturbation_rounds = args.n_perturbation_rounds
     n_similarity_samples = args.n_similarity_samples
 
@@ -461,81 +421,48 @@ def main(args):
     base_model, base_tokenizer = __load_base_model_and_tokenizer(args.base_model_name)
 
     # mask filling t5 model
-    if not args.baselines_only and not args.random_fills:
-        int8_kwargs = {}
-        half_kwargs = {}
-        if args.int8:
-            int8_kwargs = dict(load_in_8bit=True, device_map='auto', torch_dtype=torch.bfloat16)
-        elif args.half:
-            half_kwargs = dict(torch_dtype=torch.bfloat16)
-        print(f'Loading mask filling model {mask_filling_model_name}...')
-        mask_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(mask_filling_model_name, **int8_kwargs, **half_kwargs)
-        try:
-            n_positions = mask_model.config.n_positions
-        except AttributeError:
-            n_positions = 512
-    else:
+    int8_kwargs = {}
+    half_kwargs = {}
+    if args.int8:
+        int8_kwargs = dict(load_in_8bit=True, device_map='auto', torch_dtype=torch.bfloat16)
+    elif args.half:
+        half_kwargs = dict(torch_dtype=torch.bfloat16)
+    print(f'Loading mask filling model {mask_filling_model_name}...')
+    mask_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(mask_filling_model_name, **int8_kwargs, **half_kwargs)
+    try:
+        n_positions = mask_model.config.n_positions
+    except AttributeError:
         n_positions = 512
     preproc_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-small', model_max_length=512)
     mask_tokenizer = transformers.AutoTokenizer.from_pretrained(mask_filling_model_name, model_max_length=n_positions)
-    if args.dataset in ['english', 'german']:
-        preproc_tokenizer = mask_tokenizer
 
     __load_base_model()
-
-    print(f'Loading dataset {args.dataset}...')
-    data = generate_data(dataset, args.dataset_key)
-    if args.random_fills:
-        FILL_DICTIONARY = set()
-        for texts in data.values():
-            for text in texts:
-                FILL_DICTIONARY.update(text.split())
-        FILL_DICTIONARY = sorted(list(FILL_DICTIONARY))
-
-    if args.scoring_model_name:
-        print(f'Loading SCORING model {args.scoring_model_name}...')
-        del base_model
-        del base_tokenizer
-        torch.cuda.empty_cache()
-        base_model, base_tokenizer = __load_base_model_and_tokenizer(args.scoring_model_name)
-        __load_base_model()  # Load again because we've deleted/replaced the old model
-
-    # write the data to a json file in the save folder
-    with open(os.path.join(SAVE_FOLDER, "raw_data.json"), "w") as f:
-        print(f"Writing raw data to {os.path.join(SAVE_FOLDER, 'raw_data.json')}")
-        json.dump(data, f)
-
+    
     outputs = []
+    
+    for key in ['real', 'sample']: 
+        print(f'Loading dataset {args.dataset}...')
+        data = generate_data(dataset, key)
 
-    # run perturbation experiments
-    for n_perturbations in n_perturbation_list:
         perturbation_results = get_perturbation_results(args.span_length, n_perturbations, n_samples)
         perturbation_mode = 'd' if args.no_normalization else 'z'
         output = run_perturbation_experiment(
             perturbation_results, perturbation_mode, span_length=args.span_length, n_perturbations=n_perturbations, n_samples=n_samples)
         outputs.append(output)
-        with open(os.path.join(SAVE_FOLDER, f"perturbation_{n_perturbations}_{perturbation_mode}_results.json"), "w") as f:
-            json.dump(output, f)
 
-
-    """# move results folder from tmp_results/ to results/, making sure necessary directories exist
-    new_folder = SAVE_FOLDER.replace("tmp_results", "results")
-    if not os.path.exists(os.path.dirname(new_folder)):
-        os.makedirs(os.path.dirname(new_folder))
-    os.rename(SAVE_FOLDER, new_folder)"""
     
     ### detection code ends
-
+    metrics = classification_report_detectgpt(outputs[0]['predictions']['originals'], outputs[1]['predictions']['originals'])
     os.makedirs(output_dir, exist_ok=True)
-    """with open(os.path.join(output_dir, "clf_metrics.json"), "w") as jf:
-        json.dump(metrics, jf)"""
+    with open(os.path.join(output_dir, "clf_metrics.json"), "w") as jf:
+        json.dump(metrics, jf)
     
-    all_ids = dataset['doc_id'][:n_samples] + dataset['mgt_id'][:n_samples]
+    all_ids = dataset['doc_id'][:n_samples] + dataset['doc_id'][:n_samples]
 
     # store models output (scores/logits/probs) too! (e.g., {"p_0": soft_0, "p_1": soft_1})
-    y_pred = list(map(__threshold, output['predictions']['real'])) + list(map(__threshold, output['predictions']['samples']))
-    y_true = [0]* len(output['predictions']['real']) + [1] * len(output['predictions']['samples'])
-    p_0 = output['predictions']['real'] + output['predictions']['samples']
+    y_pred = list(map(__threshold, outputs[0]['predictions']['originals'])) + list(map(__threshold, outputs[1]['predictions']['originals']))
+    y_true = [0]* len(outputs[0]['predictions']['originals']) + [1] * len(outputs[1]['predictions']['originals'])
+    p_0 = outputs[0]['predictions']['originals'] + outputs[1]['predictions']['originals']
     print(len(y_pred), len(y_true), len(p_0), len(all_ids))
 
     df_preds = pd.DataFrame(data={"doc-id": all_ids, 
@@ -561,11 +488,10 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_key', type=str, default="real")
     parser.add_argument('--pct_words_masked', type=float, default=0.3) # pct masked is actually pct_words_masked * (span_length / (span_length + 2 * buffer_size))
     parser.add_argument('--span_length', type=int, default=2)
-    parser.add_argument('--n_samples', type=int, default=50)
-    parser.add_argument('--n_perturbation_list', type=str, default="100")
+    parser.add_argument('--n_samples', type=int, default=100)
+    parser.add_argument('--n_perturbations', type=int, default="100")
     parser.add_argument('--n_perturbation_rounds', type=int, default=1)
     parser.add_argument('--base_model_name', type=str, default="openai-community/gpt2")
-    parser.add_argument('--scoring_model_name', type=str, default="")
     parser.add_argument('--mask_filling_model_name', type=str, default="t5-large")
     parser.add_argument('--batch_size', type=int, default=50)
     parser.add_argument('--chunk_size', type=int, default=20)
@@ -584,7 +510,5 @@ if __name__ == "__main__":
     parser.add_argument('--mask_top_p', type=float, default=1.0)
     parser.add_argument('--pre_perturb_pct', type=float, default=0.0)
     parser.add_argument('--pre_perturb_span_length', type=int, default=5)
-    parser.add_argument('--random_fills', action='store_true')
-    parser.add_argument('--random_fills_tokens', action='store_true')
     args = parser.parse_args()
     main(args)
