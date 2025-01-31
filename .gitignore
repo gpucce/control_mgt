@@ -180,7 +180,6 @@ etc
 profiling
 preds-classifier
 *.sh
-!run_detectaive.sh
 *.bak
 
 dpo_dataset/model/*
