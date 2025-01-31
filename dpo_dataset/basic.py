@@ -65,6 +65,8 @@ def _get_model_name(model_name):
         _model_name = "meta-llama/Llama-3.2-3B-Instruct"
     elif model_name == "llama-3.1-8b":
         _model_name = "meta-llama/Llama-3.1-8B-Instruct"
+    elif model_name == "gemma":
+        _model_name = "google/gemma-2-2b-it"
     else:
         raise NotImplementedError(f"'{model_name}' not valid!")
     return _model_name
@@ -83,7 +85,7 @@ def _get_model(model_name, pretrained_adapter=None, lora_config=None, fsdp=False
             model = AutoModelForCausalLM.from_pretrained(_model_name, torch_dtype=torch.bfloat16, device_map="cpu", token=os.getenv("MY_HF_TOKEN")).to(device)
             model = get_peft_model(model, peft_config=lora_config)
     
-    tokenizer = AutoTokenizer.from_pretrained(_model_name, add_eos_token=True, add_bos_token=True, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(_model_name, add_eos_token=True, add_bos_token=True, use_fast=False, token=os.getenv("MY_HF_TOKEN"))
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.chat_template = SIMPLE_CHAT_TEMPLATE
     
