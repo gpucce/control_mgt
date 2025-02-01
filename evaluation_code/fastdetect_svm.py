@@ -4,35 +4,10 @@ import joblib
 import json
 import pandas as pd
 
-from sklearn.svm import LinearSVC
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import classification_report
 
 
 pd.options.mode.chained_assignment = None
-
-
-def get_clf(model_path=None, feature_processor="zscore"):
-    if model_path is not None:
-        print(f"- loading trained model from: {model_path}")
-        model = joblib.load(model_path)
-    else:
-        if feature_processor == "zscore":
-            model = make_pipeline(StandardScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
-        elif feature_processor == "minmax":
-            model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
-        else:
-            raise NotImplementedError
-    return model
-
-
-def get_data_profile(datapath, test_idx):
-    if datapath.endswith(".zip"):
-        data = pd.read_json(datapath, lines=True).to_dict(orient="records")
-    else:
-        data = json.load(open(datapath))
-    return data
 
 
 def convert_ids(data):
@@ -63,6 +38,7 @@ def get_split(data_mgt, data_hwt, idx):
 
     return X_feats, labels, ids
 
+
 def main(args):
     profile_hwt= pd.read_csv(args.hwt_profile, sep="\t")
     profile_mgt= pd.read_csv(args.mgt_profile, sep="\t")
@@ -70,13 +46,7 @@ def main(args):
     feature_set = [line.strip() for line in open("profiling_results/all_features_order.txt")]
 
     target = args.mgt_profile.split("/")[-1].replace("_doc.out", "")
-    output_dir = os.path.join("evaluation_code", "evaluations", *args.mgt_profile.split("/")[2:-2], "svm_detector", target)
-
-    print(f"- Evaluation support-vector classifier INFO" + "-" * 25)
-    print(f"- storing results in: {output_dir}")
-    print(f"- target: {target}")
-    print(f"- num pairs: {len(profile_hwt) + len(profile_mgt)}")
-    print("-" * 45)
+    output_dir = os.path.join("evaluation_code", "evaluations", *args.mgt_profile.split("/")[2:-2], "svm_detector", target) # TODO FIXME this is risky (in all the detectors, we're assuming some kind of standard pathstandard path  naming...)
 
     if not args.unfiltered:
         non_verbalized_features = [line.strip() for line in open("profiling_results/TO_REMOVE.txt")]
@@ -91,6 +61,12 @@ def main(args):
     profile_hwt = fill_missing_feats(profile_hwt, column_order)
 
     X_te, labels, te_ids = get_split(profile_mgt, profile_hwt, idx=testset_ids)
+    
+    print(f"- Evaluation support-vector classifier INFO" + "-" * 25)
+    print(f"- storing results in: {output_dir}")
+    print(f"- target: {target}")
+    print(f"- num pairs: {len(X_te)}")
+    print("-" * 45)
 
     model = joblib.load(args.svm_path)
     
