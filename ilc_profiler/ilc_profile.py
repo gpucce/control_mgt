@@ -19,10 +19,15 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def get_data(path):
     if path.endswith(".json"):
-        data = json.load(open(path)) 
+        try:
+            data = json.load(open(path)) 
+        except:
+            data = pd.read_json(path, lines=True)   # FIXME
+            data = data.to_dict(orient="records")
     else:
         data = pd.read_json(path, lines=True)
         data = data.to_dict(orient="records")
+    print(f"- data length: {len(data)}")
     return data
 
 
@@ -63,7 +68,8 @@ def process_chunk(args):
 def main(args):
     data = get_data(args.datapath)
     if args.outdir is None:
-        parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
+        # parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
+        parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[-3:-1], args.method)
     else:
         parser_outdir = args.outdir
     
@@ -79,8 +85,10 @@ def main(args):
     
     if args.testset_only:
         archive_fn = os.path.join(parser_outdir, "testset_parsing.conllu.zip")
+        ling_monitoring_fn = "testset_" + args.method
     else:
         archive_fn = os.path.join(parser_outdir, "parsing.conllu.zip")
+        ling_monitoring_fn = args.method
     
     print(f"- parser outdir: {parser_outdir}")
     print(f"- parsing archive: {archive_fn}")
@@ -92,7 +100,7 @@ def main(args):
                 out = _io_save_coll(doc_id=doc_id, conll_doc=data)
                 zipf.writestr(f"{doc_id}.conllu", out)
 
-    ling_monitoring.run(datapath=archive_fn, output_name=args.method, multisent=1, outdir=parser_outdir)
+    ling_monitoring.run(datapath=archive_fn, output_name=ling_monitoring_fn, multisent=1, outdir=parser_outdir)
 
 
 if __name__ == "__main__":
