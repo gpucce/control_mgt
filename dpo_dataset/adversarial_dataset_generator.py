@@ -208,7 +208,6 @@ def extract_adversarial_dataset(adversarial_feats, data_hwt, data_mgt, split_idx
     
 
 def create_dpo_dataset(adversarial_ids, clf_pred, hwt_text, mgt_text, mgt_method, system_prompt=None):
-    # TODO: this is hard-coded to work with llama chat template FIXME
     dataset = []
 
     for i, row in adversarial_ids.iterrows():
@@ -265,10 +264,10 @@ def main(args):
     profile_mgt = convert_ids(profile_mgt)
     profile_hwt = convert_ids(profile_hwt)
 
-    feature_set = [line.strip() for line in open("profiling_results/all_features_order.txt")]
+    feature_set = [line.strip() for line in open("dpo_dataset/all_features_order.txt")]
 
     if args.filter:
-        non_verbalized_features = [line.strip() for line in open("profiling_results/TO_REMOVE.txt")]
+        non_verbalized_features = [line.strip() for line in open("dpo_dataset/non_verbalized_feats.txt")]
         feature_set = [f for f in feature_set if f not in non_verbalized_features]
 
     column_order = ["identifier"] + feature_set
