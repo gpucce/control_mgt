@@ -16,9 +16,6 @@ from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
 from accelerate import Accelerator
 
-import os
-
-# TODO check system prompt 
 
 def print_trainable_parameters(model):
     """
@@ -35,29 +32,10 @@ def print_trainable_parameters(model):
     )
 
 
-# Model Training Stalls with FSDP when fsdp_use_orig_params=False due to inconsistent model-optimizer state https://github.com/huggingface/accelerate/issues/3256
-def get_dataset(dataset_name):
-    if dataset_name == "adversarial-dpo-iter1":
-        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1/adversarial_dpo_dataset.json", split="train")
-    elif dataset_name == "adversarial-dpo-iter1-filtered":
-        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-filtered-cut256/adversarial_dpo_dataset.json", split="train")
-    # elif dataset_name == "andrea-dpo-iter1-unfiltered":
-    #     # _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum-wrong-feats/dpo-iter1-unfiltered/adversarial_dpo_dataset.json", split="train")
-    #     _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-unfiltered-cut256", split="train")
-    elif dataset_name == "adversarial-dpo-iter2-filtered":
-        # TODO
-        raise NotImplementedError
-    elif dataset_name == "adversarial-naive-dpo-iter1":
-        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-naive-cut256/adversarial_dpo_dataset.json", split="train")
-    elif dataset_name == "adversarial-dpo-iter1-filtered-zscore":
-        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-filtered-cut256-zscore/adversarial_dpo_dataset.json", split="train")
-    elif dataset_name == "adversarial-dpo-iter1-unfiltered-zscore":
-        _dataset = load_dataset("json", data_files="profiling_results/adversarial_dataset/xsum/dpo-iter1-unfiltered-cut256-zscore/adversarial_dpo_dataset.json", split="train")
-    else:
-        raise NotImplementedError
-    
-    dataset = _dataset.train_test_split(test_size=0.2)
-    print(f"- data: {dataset_name} (train-len: {len(dataset['train'])})")
+def get_dataset_from_path(datapath):
+    dataset = load_dataset("json", data_files=datapath, split="train")
+    dataset = dataset.train_test_split(test_size=0.2)
+    print(f"- data: {datapath} (train-len: {len(dataset['train'])})")
     return dataset
 
 
@@ -98,7 +76,7 @@ def _get_model(model_name, pretrained_adapter=None, lora_config=None, fsdp=False
 
 def get_output_dir(args, start_time, basedir="checkpoints-dpo"):
     model = args.model_name
-    dataset = args.dataset
+    dataset = args.dataset_name
     
     if args.lora:
         model += "_lora"
@@ -130,8 +108,21 @@ def get_lora_config(rank=32):
     return config
 
 
+def get_system_prompt(dataset_name):
+    if "xsum" in dataset_name:
+        system_content = "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics"
+    elif "abstract" in dataset_name:
+        system_content = "You are an university professor working in the academic field"
+    return {"role": "system", "content": system_content}
+
+
+def add_system_prompt(elem, system_prompt):
+    elem["prompt"].insert(0, system_prompt)
+    return elem
+
+
 def main(args):
-    _start_time = datetime.now().strftime('%Y-%m-%d-%H-%M')
+    _start_time = datetime.now().strftime('%m%d-%H%M')
     accelerator = Accelerator()
     device = accelerator.device
 
@@ -143,7 +134,11 @@ def main(args):
     else:
         lora_config = None
 
-    dataset = get_dataset(args.dataset)
+    dataset = get_dataset_from_path(args.datapath)
+    if args.add_system_prompt:
+        system_prompt = get_system_prompt(args.dataset_name)
+        dataset.map(add_system_prompt, fn_kwargs={"system_prompt": system_prompt})
+
     model, tokenizer = _get_model(args.model_name, pretrained_adapter=args.adapter_path, attn_impl=args.attn_impl, lora_config=lora_config, device=device, is_peft_trainable=True)
     earlystop = EarlyStoppingCallback(early_stopping_patience=10)
 
@@ -178,7 +173,8 @@ def main(args):
         save_strategy="steps" if not args.nosave else "no",
         logging_steps=10,
         save_total_limit=2,
-        run_name=f"{args.model_name}-{args.dataset}-{_start_time}",
+        run_name=f"{args.model_name}-{_start_time}",
+        # run_name=f"{args.model_name}-{args.dataset_name}-{_start_time}",
 
         # experimental
         # use_liger_kernel=True,
@@ -186,7 +182,7 @@ def main(args):
     )
 
     # Set reference model for >=2 dpo iterations
-    if "iter2" in args.dataset:
+    if "iter2" in args.dataset_name:
         print("- loading LoRA reference model")
         ref_model, _ = _get_model(args.model_name, pretrained_adapter=args.adapter_path, attn_impl=args.attn_impl, device=device, is_peft_trainable=False)
     else:
@@ -202,6 +198,7 @@ def main(args):
         callbacks=[earlystop],
     )
     
+    trainer.log({"dataset_path": args.datapath, "dataset_name": args.dataset_name})
     trainer.train()
 
     if args.nosave:
@@ -249,12 +246,14 @@ if __name__ == "__main__":
     parser.add_argument("--max_length",         type=int,   default=256)
     parser.add_argument("--warmup_ratio",       type=float, default=0.2)
     parser.add_argument("--attn_impl",          type=str,   default="sdpa", choices=["eager", "flash_attention_2", "sdpa"])
-    parser.add_argument("--dataset",            type=str,   default="adversarial-dpo-iter1-filtered")
+    parser.add_argument("--dataset_name",       type=str,   required=True)
+    parser.add_argument("--datapath",           type=str,   default="dpo_dataset/adversarial_dataset/xsum/llama/adversarial_dpo_dataset.json")
     parser.add_argument("--fsdp",               action="store_true")
     parser.add_argument("--nosave",             action="store_true")
     parser.add_argument("--precompute_ref",     action="store_true")
     parser.add_argument("--wandb_project",      type=str, default="control_mgt-dpo")
     parser.add_argument("--lora_rank",          type=int, default=32)
+    parser.add_argument("--add_system_prompt",  action="store_true")
 
     args = parser.parse_args()
     os.environ["WANDB_PROJECT"] = args.wandb_project
