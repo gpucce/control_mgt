@@ -13,7 +13,7 @@ from peft import PeftModel
 from itertools import batched
 from datetime import datetime
 
-from utils import get_random_prompt_xsum, postprocess_text
+from utils import get_random_prompt_xsum, get_prompt_m4abs, postprocess_text
 
 
 def prepare_inputs(prompts, llm):
@@ -25,26 +25,23 @@ def prepare_inputs(prompts, llm):
     return prompts
 
 
+def set_prompt_style(model_name):
+    if "gemma" in model_name.lower():
+        use_system_prompt = False
+    else:
+        use_system_prompt = True
+    return use_system_prompt
+
+
 def get_data(args, lines=True):
     data = pd.read_json(args.datapath, lines=lines)
-    split = json.load(open("data/splits/split.100000.json"))
+    split = json.load(open(args.split_path))
 
-    data_test = data[data.id.isin(split["te"])]
-    data_val = data[data.id.isin(split["val"])]
-    data_train = data[data.id.isin(split["tr"])]
+    data_test = data[data["doc-id"].isin(split["te"])]
+    data_val = data[data["doc-id"].isin(split["val"])]
+    data_train = data[data["doc-id"].isin(split["tr"])]
     
     return data_train, data_val, data_test
-
-
-def get_model(model_name, adapter_path=None, device="cuda"):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
-    
-    if adapter_path is not None:
-        model = PeftModel.from_pretrained(model, model_id="models-dpo/llama-3.1-8b_lora/control-iter1/2025-01-25-11-06")
-        model = model.merge_and_unload()
-    
-    return model, tokenizer
 
 
 def get_vllm_model(model_name, enable_lora=False, max_tokens=1024):
@@ -63,7 +60,15 @@ def main(args):
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
     model_name = args.model_name
 
-    outdir = os.path.join("generation_code", "generations", *args.adapter_path.split("/")[-2:])
+    if args.adapter_path is not None:
+        outdir = os.path.join("generation_code", "generations", *args.adapter_path.split("/")[-2:])
+    else:
+        if "xsum" in args.datapath:
+            outdir = os.path.join("generation_code", "generations", "xsum", model_name)
+        elif "m4-abstract" in args.datapath:
+            outdir = os.path.join("generation_code", "generations", "m4-abstract", model_name)
+        else:
+            raise NotImplementedError
     os.makedirs(outdir, exist_ok=True)
     output_fn = os.path.join(outdir, f"{args.output}{('-' + args.note) if args.note != '' else ''}-{timestamp}.json")
 
@@ -86,9 +91,9 @@ def main(args):
     print(f"- data shape: {data.shape}")
     print("-" * 75)
     
-    ids = data.id
-    real_articles = data.real_article
-    llama_articles = data.generated_text
+    ids = data["doc-id"]
+    real_articles = data.human
+    llama_articles = data.llama
     model, tokenizer, sample_params = get_vllm_model(
         model_name=args.model,
         enable_lora=True if args.adapter_path is not None else False,
@@ -96,8 +101,8 @@ def main(args):
         )
 
     messages = data.title.values
-    prompt_func = get_random_prompt_xsum
-    prompts = [prompt_func(m, informed=True) for m in messages]
+    prompt_func = get_random_prompt_xsum if "xsum" in args.datapath else get_prompt_m4abs
+    prompts = [prompt_func(m, informed=True, use_system_prompt=set_prompt_style(args.model_name)) for m in messages]
     prompts = prepare_inputs(prompts, model)
 
     if args.adapter_path is not None:
@@ -120,7 +125,7 @@ def main(args):
             generated_text = postprocess_text(output.outputs[0].text)
             real_article = postprocess_text(real_article)
 
-            to_dump = {
+            to_dump = {             # FIXME this does not take into account different keys (eg "gemma")
                 "doc-id": str(_id),
                 "title": message,
                 "human": real_article,
@@ -138,8 +143,8 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--datapath", type=str, default="data/xsum_generations/vanilla/xsum-generations.zip")
-    parser.add_argument("--adapter_path", type=str, default="models-dpo/llama-3.1-8b_lora/adversarial-dpo-iter1-filtered/2025-01-28-18-49")
-    parser.add_argument("--model", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
+    parser.add_argument("--adapter_path", type=str, default=None)
+    parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--model_name", type=str, required=True)
     parser.add_argument("--output", type=str, default="xsum")
@@ -148,6 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--alldata", action="store_true")
     parser.add_argument("--test_num_samples", type=int, default=None)
     parser.add_argument("--max_tokens", type=int, default=1024)
+    parser.add_argument("--split_path", type=str, default="data/xsum_generations/splits/split.100000.json")
 
     args = parser.parse_args()
     main(args)
