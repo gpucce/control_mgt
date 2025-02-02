@@ -57,7 +57,7 @@ def get_vllm_model(model_name, enable_lora=False, max_tokens=1024):
 
 
 def main(args):
-    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%m%d_%H%M")
     model_name = args.model_name
 
     if args.adapter_path is not None:
@@ -93,8 +93,8 @@ def main(args):
     
     ids = data["doc-id"]
     real_articles = data.human
-    llama_articles = data.llama
-    model, tokenizer, sample_params = get_vllm_model(
+    # llama_articles = data.llama
+    model, _ , sample_params = get_vllm_model(
         model_name=args.model,
         enable_lora=True if args.adapter_path is not None else False,
         max_tokens=args.max_tokens
@@ -109,8 +109,8 @@ def main(args):
         lora_request = LoRARequest("dpo-1st", 1, lora_path=args.adapter_path)
 
     output_data = []
-    for batch in batched(zip(prompts, messages, real_articles, llama_articles, ids), args.batch):
-        prompt_batch, message_batch, real_batch, llama_batch, id_batch = zip(*batch)
+    for batch in batched(zip(prompts, messages, real_articles, ids), args.batch):
+        prompt_batch, message_batch, real_batch, id_batch = zip(*batch)
 
         output_batch = model.generate(
             prompt_batch,
@@ -118,18 +118,18 @@ def main(args):
             lora_request=lora_request if args.adapter_path is not None else None
             ) 
         
-        for output, message, prompt, real_article, llama_article, _id in zip(
-            output_batch, message_batch, prompt_batch, real_batch, llama_batch, id_batch):
+        for output, message, prompt, real_article, _id in zip(
+            output_batch, message_batch, prompt_batch, real_batch, id_batch):
+
             prompt = output.prompt
             prompts.append(prompt)
             generated_text = postprocess_text(output.outputs[0].text)
             real_article = postprocess_text(real_article)
 
-            to_dump = {             # FIXME this does not take into account different keys (eg "gemma")
+            to_dump = {
                 "doc-id": str(_id),
                 "title": message,
                 "human": real_article,
-                "llama": llama_article,
                 model_name: generated_text,
                 }
             output_data.append(to_dump)
