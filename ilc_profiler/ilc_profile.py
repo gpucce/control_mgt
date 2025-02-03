@@ -64,14 +64,30 @@ def process_chunk(args):
     conllu_archive = run_parser(chunk, method=method, device=device)
     return conllu_archive
 
+def get_outdir(args):
+    datapath = args.datapath
+    basedir = os.path.join("ilc_profiler", "parsed")
+    adapter_name = datapath.split("/")[-2]
+    model_name = datapath.split("/")[-3]    # FIXME
+    if "xsum-iter-1" in datapath:
+        outdir = os.path.join(basedir, "xsum", "dpo-iter1", model_name, adapter_name)
+    elif "m4abs-iter-1" in datapath:
+        outdir = os.path.join(basedir, "m4-abs", "dpo-iter1", model_name, adapter_name)
+    elif "m4-abs" in datapath:
+        pass
+    elif "xsum" in datapath:
+        basedir = os.path.join(basedir, "xsum", "vanilla", model_name)  # FIXME model_name is correct? (gemma OR llama)
+        pass
+    return outdir
 
 def main(args):
     data = get_data(args.datapath)
-    if args.outdir is None:
-        # parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
-        parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[-3:-1], args.method)
-    else:
-        parser_outdir = args.outdir
+    parser_outdir = get_outdir(args)
+    # if args.outdir is None:
+    #     # parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
+    #     parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[-3:-1], args.method)
+    # else:
+    #     parser_outdir = args.outdir
     
     if args.max_length is not None:
         parser_outdir += f"-cut{args.max_length}"
