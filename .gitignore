@@ -188,7 +188,7 @@ old/
 *.joblib
 ProfilingUD/
 ilc_profiler/ilc_profile_multip.py
-parsing.conllu.zip
+*parsing.conllu.zip
 *_doc.out
 nohup.out
 # !roc_curves.ipynb
