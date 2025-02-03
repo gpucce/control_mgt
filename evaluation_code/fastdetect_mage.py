@@ -44,10 +44,18 @@ def main(args):
     device = args.device
     data = get_data(args.datapath)
 
+    if args.split_path is not None:
+        test_split = json.load(open(args.split_path))["te"]
+        data = pd.DataFrame(data)
+        data = data[data["doc-id"].isin(test_split)]
+        data = data.to_dict(orient="records")
+        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "mage_detector", args.target)
+    else:
+        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "mage_detector", args.target)
+
     tokenizer = AutoTokenizer.from_pretrained("yaful/MAGE")
     clf = AutoModelForSequenceClassification.from_pretrained("yaful/MAGE").to(device)
 
-    output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "mage_detector", args.target)
     print(f"- Evaluation mage INFO " + "-" * 25)
     print(f"- storing results in: {output_dir}")
     print(f"- target: {args.target}")
@@ -90,5 +98,6 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--target", type=str, default="llama")
     parser.add_argument("--batchsize", type=int, default=64)
+    parser.add_argument("--split_path", type=str, default=None)
     args = parser.parse_args()
     main(args)

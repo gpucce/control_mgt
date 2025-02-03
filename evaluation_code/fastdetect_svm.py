@@ -46,7 +46,16 @@ def main(args):
     feature_set = [line.strip() for line in open("profiling_results/all_features_order.txt")]
 
     target = args.mgt_profile.split("/")[-1].replace("_doc.out", "")
-    output_dir = os.path.join("evaluation_code", "evaluations", *args.mgt_profile.split("/")[2:-2], "svm_detector", target) # TODO FIXME this is risky (in all the detectors, we're assuming some kind of standard pathstandard path  naming...)
+    
+    if args.split_path is not None:
+        test_split = json.load(open(args.split_path))["te"]
+        data = pd.DataFrame(data)
+        data = data[data["doc-id"].isin(test_split)]
+        data = data.to_dict(orient="records")
+        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "svm_detector", args.target)
+    else:
+        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "svm_detector", args.target)
+
 
     if not args.unfiltered:
         non_verbalized_features = [line.strip() for line in open("profiling_results/TO_REMOVE.txt")]
@@ -87,9 +96,10 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--hwt_profile", type=str, default="ilc_profiler/parsed/xsum/vanilla/human-cut256/human_doc.out")
-    parser.add_argument("--mgt_profile", type=str, default="ilc_profiler/parsed/adversarial-dpo-iter1-filtered/2025-01-31-15-39/dpo-llama-1st-iter-cut256/dpo-llama-1st-iter_doc.out")
+    parser.add_argument("--mgt_profile", type=str, default="ilc_profiler/parsed/adversarial-dpo-iter1-filtered/2025-01-30-23-48/dpo-llama-1st-iter-cut256/dpo-llama-1st-iter_doc.out")
     parser.add_argument("--split_path", type=str, default="data/splits/split.100000.json")
     parser.add_argument("--svm_path", type=str, default="profiling_results/adversarial_dataset/xsum/dpo-iter1-filtered-cut256/svm_pipeline.joblib")
     parser.add_argument("--unfiltered", action="store_true")
+    parser.add_argument("--split_path", type=str, default=None)
     args = parser.parse_args()
     main(args)

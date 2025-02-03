@@ -374,7 +374,16 @@ def run_perturbation_experiment(results, criterion, span_length=10, n_perturbati
 
 def main(args):
     global  base_model, mask_model, base_tokenizer, preproc_tokenizer, mask_tokenizer, FILL_DICTIONARY, mask_filling_model_name, n_samples, batch_size, n_perturbation_rounds, n_similarity_samples, data, max_length
-    output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "detect-gpt_detector", args.target)
+    
+    if args.split_path is not None:
+        test_split = json.load(open(args.split_path))["te"]
+        data = pd.DataFrame(data)
+        data = data[data["doc-id"].isin(test_split)]
+        data = data.to_dict(orient="records")
+        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "detect-gpt_detector", args.target)
+    else:
+        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "detect-gpt_detector", args.target)
+
     
     with open(args.datapath, "r") as input_file:
         temp = json.loads(input_file.read())
@@ -471,6 +480,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--target", type=str, default="llama")
     parser.add_argument("--batchsize", type=int, default=64)
+    parser.add_argument("--split_path", type=str, default=None)
     
     parser.add_argument("--no_normalization", action='store_true')
     parser.add_argument('--dataset_key', type=str, default="real")
