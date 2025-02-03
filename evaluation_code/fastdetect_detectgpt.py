@@ -262,7 +262,7 @@ def generate_data(dataset, key = "real"):
     random.seed(0)
     random.shuffle(data)
 
-    data = data[:5_000]
+    #data = data[:5_000]
 
     tokenized_data = base_tokenizer(data, truncation=True, max_length=max_length)
     data = base_tokenizer.batch_decode(tokenized_data['input_ids'], skip_special_tokens=True)
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_key', type=str, default="real")
     parser.add_argument('--pct_words_masked', type=float, default=0.3) # pct masked is actually pct_words_masked * (span_length / (span_length + 2 * buffer_size))
     parser.add_argument('--span_length', type=int, default=2)
-    parser.add_argument('--n_samples', type=int, default=100)
+    parser.add_argument('--n_samples', type=int, default=22500)
     parser.add_argument('--n_perturbations', type=int, default="1")
     parser.add_argument('--n_perturbation_rounds', type=int, default=1)
     parser.add_argument('--base_model_name', type=str, default="openai-community/gpt2")
