@@ -53,7 +53,7 @@ def main(args):
     
     soft_preds = []
     hard_preds = []
-    for elem in tqdm(batched(texts, args.batchsize), total=len(data) // args.batchsize):
+    for elem in tqdm(batched(texts, args.batchsize), total=len(texts) // args.batchsize):
         with torch.no_grad():
             soft_p = binoculars.compute_score(elem)
             hard_p = binoculars.predict(elem)
