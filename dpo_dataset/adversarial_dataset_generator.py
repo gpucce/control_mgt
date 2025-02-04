@@ -47,34 +47,6 @@ def print_info_creation(args):
     print("-" * 50)
 
 
-def __extract_systems_and_prompt(instance):
-    # Updated pattern to capture all three blocks: system, user, and assistant
-    pattern = (
-        r"<\|start_header_id\|>system<\|end_header_id\|>\s*(.*?)<\|eot_id\|>\s*"  # Capture system text
-        r"<\|start_header_id\|>user<\|end_header_id\|>\s*(.*?)<\|eot_id\|>\s*"  # Capture user prompt
-    )
-
-    # Perform the search
-    match = re.search(pattern, instance, re.DOTALL)
-
-    if match:
-        system_text = match.group(1).strip()
-        user_prompt = match.group(2).strip()
-
-        _leftover_string = """Cutting Knowledge Date: December 2023\nToday Date: 26 Jul 2024\n\n"""
-        system_text = system_text.replace(_leftover_string, "")
-
-        # Print the extracted texts
-        """print("system_text:")
-        print(system_text)
-        print("\nuser_prompt:")
-        print(user_prompt)"""
-        return system_text, user_prompt
-    else:
-        print("No match found.")
-        raise Exception("No System Prompt found")
-
-
 def fill_missing_feats(data, all_features):
     for feat in all_features:
         if feat not in data.columns:
@@ -89,10 +61,10 @@ def convert_ids(data):
 
 
 def get_split(data_mgt, data_hwt, idx):
-    data_mgt = data_mgt[data_mgt.identifier.isin(idx)] #.drop(columns="identifier")
+    data_mgt = data_mgt[data_mgt.identifier.isin(idx)]
     data_mgt["label"] = 1
 
-    data_hwt = data_hwt[data_hwt.identifier.isin(idx)] #.drop(columns="identifier")
+    data_hwt = data_hwt[data_hwt.identifier.isin(idx)]
     data_hwt["label"] = 0
 
     X_feats = pd.concat((data_mgt, data_hwt), axis=0, ignore_index=True)
@@ -132,15 +104,28 @@ def get_clf(model_path=None, feature_processor="zscore"):
     return model
 
 
-def __f_importances(coef, names, top):
+def __f_importances(coef, names, top, feature_filter=None):
     # Sort importances in descending order
     imp, names, index = zip(*sorted(zip(coef, names, range(len(coef))), reverse=True))
-
-    return index[:top], [str(feat) for feat in names[:top]]
-
-# TODO integrate
-def get_top_examples_second_iter(original, synth, old_top_features, new_top_features, epsilon, num_rows, training_splits):
+    if not feature_filter: 
+        return index[:top], [str(feat) for feat in names[:top]]
+    else:
+        print(f"- filtered out features: {feature_filter}")
+        top_ten_index = []
+        top_ten_names = []
+        for i, name in zip(index, names):
+            if str(name) in feature_filter:
+                continue
+            else:
+                top_ten_index.append(i)
+                top_ten_names.append(str(name))
+            if len(top_ten_index) == 10:
+                break
+        return top_ten_index, top_ten_names
     
+
+def get_top_examples_second_iter(original, synth, old_top_features, new_top_features, epsilon, num_rows):
+    # nb we're receiving only the training split
     # Calculate absolute differences
     diff_old = np.abs(original[old_top_features] - synth[old_top_features])
     diff_new = np.abs(original[new_top_features] - synth[new_top_features])
@@ -148,21 +133,12 @@ def get_top_examples_second_iter(original, synth, old_top_features, new_top_feat
     
     diff_old_normalized = (diff_old - diff_old.min()) / (diff_old.max() - diff_old.min())
 
-    
     # Iterate through each column in `new`
     for column in new_top_features:
         # Filter rows where differences in `old` are within tolerance
         mask = (diff_old_normalized <= epsilon).all(axis=1)  # Ensure all `old` columns meet the condition
-        
-        filtered_indices = [
-            idx for idx in original[mask].index
-            if int(original.loc[idx, 'identifier'].split(".")[0]) in training_splits
-        ]
-        
-        # Filter data based on `filtered_indices`
+        filtered_indices = [idx for idx in original[mask].index]
         filtered_data = original.loc[filtered_indices]
-
-        # Calculate differences for the current column in `new`
         filtered_diff = diff_new.loc[filtered_indices]
 
         # Select rows where the difference for the current `new` column is maximized
@@ -172,30 +148,34 @@ def get_top_examples_second_iter(original, synth, old_top_features, new_top_feat
         df['raw_difference'] = original.loc[top_rows, column] - synth.loc[top_rows, column]
         df['normalized_diff_old_mean'] = diff_old_normalized.loc[top_rows].mean(axis=1)  
         df['reason'] = column
-        df['identifier'] = df['identifier'].apply(__get_true_id)
 
         dfs.append(df)
 
-    print(epsilon)
     final_df = pd.concat(dfs, ignore_index=True)
-    print(f"Shuffling the dataset, lenght: {len(final_df)}")
-    shuffled_df = final_df.sample(frac=1, random_state=42).reset_index(drop=True)
     
-    final_df = shuffled_df[shuffled_df['abs_difference'] > epsilon]
-    print(f"Filtered out all rows with the abs difference is too low, len: {len(final_df)}")
-    final_df = final_df.drop_duplicates(subset='identifier', keep='first')
-    print(f"Filtered out all row duplicates: {len(final_df)}")
+    final_df = final_df[final_df["abs_difference"] > epsilon]
+    final_df = final_df.drop_duplicates(subset="identifier", keep="first")
     final_df = final_df[['identifier', 'abs_difference', 'raw_difference', 'normalized_diff_old_mean', 'reason']]
-
     return final_df
 
 
-# TODO is_second_iter + old_adversarial_feats
-def extract_adversarial_dataset(adversarial_feats, data_hwt, data_mgt, split_idx, is_second_iter=False, old_adversarial_feats=None):
+def extract_adversarial_dataset(adversarial_feats, data_hwt, data_mgt, split_idx, is_second_iter=False, old_adversarial_feats=None, epsilon=0.1):
     dfs = []
 
     data_hwt = data_hwt[data_hwt["identifier"].isin(split_idx)]
     data_mgt = data_mgt[data_mgt["identifier"].isin(split_idx)]
+
+    if is_second_iter:
+        # TODO this is not clear to me
+        final_df = get_top_examples_second_iter(
+                original=data_hwt,
+                synth=data_mgt,
+                new_top_features=adversarial_feats,
+                old_top_features=old_adversarial_feats,
+                epsilon=epsilon,
+                num_rows=1000,
+                )
+        return final_df
 
     for i, feat in enumerate(adversarial_feats):
         df = get_top_examples(originals=data_hwt, synths=data_mgt, feature=feat, max_number_examples=1000)
@@ -305,10 +285,16 @@ def main(args):
 
     df_train_preds = pd.DataFrame(data={"doc-id": tr_ids, "y_true": Y_tr, "y_pred": y_train_pred}).sort_index()
 
+    if args.second_iter:
+        prev_feats = list(json.load(open(args.prev_feats)).keys())
+    else:
+        prev_feats = None
+
     adver_feats_imp, adversarial_feats = __f_importances(
         coef=abs(model.named_steps["linearsvc"].coef_[0]),
         names=feature_set,
-        top=10  
+        top=10,
+        feature_filter=prev_feats,
     )
 
     with open(os.path.join(adversarial_ids_outdir, "selected_feats.json"), "w") as jf:
@@ -322,7 +308,11 @@ def main(args):
         adversarial_feats=adversarial_feats,
         data_hwt=profile_hwt,
         data_mgt=profile_mgt,
-        split_idx=split_ids["tr"])
+        split_idx=split_ids["tr"],
+        is_second_iter=args.second_iter,
+        old_adversarial_feats=prev_feats,
+        epsilon=args.epsilon
+        )
     
     adversarial_ids.to_csv(os.path.join(adversarial_ids_outdir, "selected_ids.csv"), index=False)
 
@@ -331,8 +321,10 @@ def main(args):
         json.dump(args.__dict__, jf, indent=2)
 
     print("- Building Adversarial DPO dataset")
-    hwt_text = pd.read_json(args.hwt_text, lines=True)
-    mgt_text = pd.read_json(args.mgt_text, lines=True)
+    hwt_text = pd.read_json(args.hwt_text, lines=True if args.hwt_text.endswith(".zip") else False)
+    mgt_text = pd.read_json(args.mgt_text, lines=True if args.mgt_text.endswith(".zip") else False)
+
+    print(f"{hwt_text.shape=}, {mgt_text.shape=}")
 
     mgt_text = mgt_text[mgt_text["doc-id"].isin(tr_ids)]
     hwt_text = hwt_text[hwt_text["doc-id"].isin(tr_ids)]
@@ -342,11 +334,6 @@ def main(args):
         tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, token=os.getenv("MY_HF_TOKEN"))
         mgt_text[args.mgt_method] = tokenizer.batch_decode(tokenizer(mgt_text[args.mgt_method].tolist(), max_length=args.max_length, truncation=True).input_ids, skip_special_tokens=True)
         hwt_text["human"] = tokenizer.batch_decode(tokenizer(hwt_text["human"].tolist(), max_length=args.max_length, truncation=True).input_ids, skip_special_tokens=True)
-    
-    if args.use_system_prompt:
-        system_prompt = get_system_prompt(dataset=args.dataset_name)
-    else:
-        system_prompt = None
 
     dpo_dataset = create_dpo_dataset(
         adversarial_ids=adversarial_ids,
@@ -354,14 +341,15 @@ def main(args):
         mgt_text=mgt_text,
         clf_pred=df_train_preds,
         mgt_method=args.mgt_method,
-        system_prompt=system_prompt,
+        # system_prompt=system_prompt,
     )
+
+    print(f"- adversarial dataset length: {len(dpo_dataset)}")
     
     adversarial_dpo_dataset = os.path.join(adversarial_ids_outdir, "adversarial_dpo_dataset.json")
     print(f"- storing adversarial dataset in: {adversarial_dpo_dataset}")
     with open(adversarial_dpo_dataset, "w") as jf:
         json.dump(dpo_dataset, jf, ensure_ascii=False)    
-
 
 
 if __name__ == "__main__":
@@ -377,10 +365,12 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, default=None)
     parser.add_argument("--filter", action="store_true", help="remove non-verbalized features")
     parser.add_argument("--second_iter", action="store_true", help="set second-iter sampling strategy")
+    parser.add_argument("--prev_feats", type=str, default=None)
+    parser.add_argument("--prev_svm", type=str, default=None)
+    parser.add_argument("--epsilon", type=float, default=0.1)
     parser.add_argument("--feature_processor", type=str, default="minmax", help="set svm preprocessor (zscore, minmax, etc)")
     parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument("--tokenizer_name", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
-    parser.add_argument("--use_system_prompt", action="store_true")
     args = parser.parse_args()
 
     main(args)
