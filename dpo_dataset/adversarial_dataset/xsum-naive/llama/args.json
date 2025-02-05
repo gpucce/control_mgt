@@ -1,0 +1,10 @@
+{
+  "dataset_name": "xsum-naive",
+  "split_file": "data/xsum/splits/split.100000.json",
+  "mgt_text": "data/xsum/vanilla/xsum.zip",
+  "hwt_text": "data/xsum/vanilla/xsum.zip",
+  "mgt_method": "llama",
+  "num_samples": 7394,
+  "second_iter": false,
+  "prev_ids": null
+}
