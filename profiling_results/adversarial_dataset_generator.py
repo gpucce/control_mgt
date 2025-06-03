@@ -7,6 +7,8 @@ import joblib
 import pandas as pd
 import numpy as np
 
+from transformers import AutoTokenizer
+
 from pprint import pprint as pp
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -116,7 +118,7 @@ def get_clf(model_path=None, feature_processor="zscore"):
         if feature_processor == "zscore":
             model = make_pipeline(StandardScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
         elif feature_processor == "minmax":
-            model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False))
+            model = make_pipeline(MinMaxScaler(), LinearSVC(random_state=42, max_iter=1000, dual=False, ))
         else:
             raise NotImplementedError
     return model
@@ -326,6 +328,11 @@ def main(args):
     mgt_text = mgt_text[mgt_text["doc-id"].isin(tr_ids)]
     hwt_text = hwt_text[hwt_text["doc-id"].isin(tr_ids)]
 
+    if args.max_lenght is not None:
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, token=os.getenv("MY_HF_TOKEN"))
+        mgt_text = tokenizer.batch_decode(tokenizer(mgt_text[args.mgt_method].tolist(), max_length=args.max_length, truncation=True).input_ids, skip_special_tokens=True)
+        hwt_text = tokenizer.batch_decode(tokenizer(hwt_text["human"].tolist(), max_length=args.max_length, truncation=True).input_ids, skip_special_tokens=True)
+
     dpo_dataset = create_dpo_dataset(
         adversarial_ids=adversarial_ids,
         hwt_text=hwt_text,
@@ -334,7 +341,6 @@ def main(args):
         mgt_method=args.mgt_method
     )
     
-    # TODO store as zip file
     adversarial_dpo_dataset = os.path.join(adversarial_ids_outdir, "adversarial_dpo_dataset.json")
     print(f"- storing adversarial dataset in: {adversarial_dpo_dataset}")
     with open(adversarial_dpo_dataset, "w") as jf:
@@ -353,10 +359,11 @@ if __name__ == "__main__":
     parser.add_argument("--mgt_method", type=str, default="llama")
     parser.add_argument("--hwt_text", type=str)
     parser.add_argument("--model_path", type=str, default=None)
-    # parser.add_argument("--model_outdir", type=str, default="profiling_results/trained_svm/debug")
     parser.add_argument("--filter", action="store_true", help="remove non-verbalized features")
     parser.add_argument("--second_iter", action="store_true", help="set second-iter sampling strategy")
     parser.add_argument("--feature_processor", type=str, default="zscore", help="set svm preprocessor (zscore, minmax, etc)")
+    parser.add_argument("--max_length", type=int, default=256)
+    parser.add_argument("--tokenizer_name", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
     args = parser.parse_args()
 
     main(args)
