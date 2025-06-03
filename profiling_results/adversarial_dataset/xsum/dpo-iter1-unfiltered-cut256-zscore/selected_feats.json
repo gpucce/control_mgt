@@ -1,0 +1,12 @@
+{
+    "dep_dist_root": 28,
+    "n_sentences": 123,
+    "ttr_form_chunks_200": 18,
+    "verbs_form_dist_Fin": 4,
+    "dep_dist_det": 65,
+    "ttr_lemma_chunks_200": 37,
+    "upos_dist_ADP": 66,
+    "verb_edges_dist_4": 149,
+    "verb_edges_dist_3": 26,
+    "ttr_form_chunks_100": 118
+}
