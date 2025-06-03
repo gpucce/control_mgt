@@ -183,12 +183,14 @@ preds-classifier
 *.bak
 
 dpo_dataset/model/*
-# ilc_profiler/
 old/
-*.joblib
 ProfilingUD/
 ilc_profiler/ilc_profile_multip.py
 *parsing.conllu.zip
 *_doc.out
 nohup.out
-# !roc_curves.ipynb
+*.old
+backup/
+generation_code/generations/m4abs/gemma/*.json
+evaluation_code/Binoculars
+generations-*.json
