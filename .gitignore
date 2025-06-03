@@ -1,4 +1,5 @@
 *.jsonl
+!dpo_dataset/data/dataset-max-feature-difference-top-10_iter_1.jsonl
 conda_venv/
 
 # Byte-compiled / optimized / DLL files
@@ -132,6 +133,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.idea/
 
 # Spyder project settings
 .spyderproject
@@ -165,8 +167,28 @@ cython_debug/
 #.idea/
 
 checkpoints-classifier
+checkpoints-dpo
+models-dpo
 wandb
 .vscode
 TODO.md
 notes.md
 guided_gen.poc.ipynb
+explore_preds.ipynb
+etc
+*.ipynb
+profiling
+preds-classifier
+*.sh
+*.bak
+
+dpo_dataset/model/*
+# ilc_profiler/
+old/
+*.joblib
+ProfilingUD/
+ilc_profiler/ilc_profile_multip.py
+*parsing.conllu.zip
+*_doc.out
+nohup.out
+# !roc_curves.ipynb

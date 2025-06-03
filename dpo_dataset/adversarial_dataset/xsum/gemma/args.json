@@ -1,0 +1,16 @@
+{
+  "dataset_name": "xsum",
+  "split_file": "data/xsum/splits/split.100000.json",
+  "profile_path_mgt": "ilc_profiler/parsed/xsum/vanilla/gemma-cut256/gemma_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/xsum/vanilla/human-cut256/human_doc.out",
+  "mgt_text": "data/xsum/vanilla/xsum.zip",
+  "mgt_method": "gemma",
+  "hwt_text": "data/xsum/vanilla/xsum.zip",
+  "model_path": null,
+  "filter": true,
+  "second_iter": false,
+  "feature_processor": "minmax",
+  "max_length": 256,
+  "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct",
+  "use_system_prompt": false
+}

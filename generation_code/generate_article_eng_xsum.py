@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from utils import get_random_prompt_xsum, get_random_prompt_xsum_anita
+from utils import (get_random_prompt_xsum, get_random_prompt_xsum_anita, get_random_prompt_xsum_linguistic, get_random_prompt_xsum_linguistic_anita)
 
 def parse_args():
     parser = ArgumentParser()
@@ -20,6 +20,7 @@ def parse_args():
         choices=["llama-3.1-8b-instruct-hf", "llama-3.1-70b-instruct-hf", "llama-3.1-405b-instruct-hf", "anita_8b"])
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--informed", action="store_true", default=False)
+    parser.add_argument("--linguistic", action="store_true", default=False)
     return parser.parse_args()
 
 def generate(prompts, llm, params):
@@ -87,7 +88,7 @@ if __name__ == "__main__":
 
     my_folder = "/leonardo_scratch/large/userexternal/gpuccett/"
     models_folder = os.path.join(my_folder, "models/hf_llama/")
-    data_path = os.path.join(my_folder, "Repos/MGT2025-private/xsum")
+    data_path = os.path.join(my_folder, "Repos/control_mgt/xsum")
     ds = datasets.load_dataset(data_path)["train"]
     df = ds.to_pandas()
     df = df.loc[df.document.apply(lambda x: len(x) > 1000 if isinstance(x, str) else False), :]
@@ -106,6 +107,8 @@ if __name__ == "__main__":
     ids = df["id"].values[:n_articles]
     real_articles = df["document"].values[:n_articles]
     prompt_func = get_random_prompt_xsum if "anita" not in _model_name else get_random_prompt_xsum_anita
+    if args.linguistic:
+        prompt_func = get_random_prompt_xsum_linguistic
     prompts = [prompt_func(m, args.informed) for m in messages]
 
     llm, params = get_vllm_llm_and_params(model_path, model_path, temp=args.temperature)
@@ -117,7 +120,7 @@ if __name__ == "__main__":
 
     sep = "-"*10
     count = 0
-    outfile = f"generation_output_{_model_name}_xsum_temp{temperature}.jsonl"
+    outfile = f"generation_output_{_model_name}_xsum_temp_{temperature}_linguistic_{args.linguistic}.jsonl"
     if args.informed:
         outfile = outfile.replace(".jsonl", "_informed.jsonl")
     if os.path.exists(outfile):

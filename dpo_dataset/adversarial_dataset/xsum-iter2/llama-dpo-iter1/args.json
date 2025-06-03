@@ -1,0 +1,18 @@
+{
+  "dataset_name": "xsum-iter2",
+  "split_file": "data/xsum/splits/split.100000.json",
+  "profile_path_mgt": "ilc_profiler/parsed/xsum/dpo-iter1/llama-dpo-iter1/0130-2348-cut256/llama-dpo-iter1_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/xsum/vanilla/human-cut256/human_doc.out",
+  "mgt_text": "generation_code/generations/xsum-iter-1/llama-dpo-iter1/0130-2348/generations-0203_1752.json",
+  "mgt_method": "llama-dpo-iter1",
+  "hwt_text": "data/xsum/vanilla/xsum.zip",
+  "model_path": null,
+  "filter": true,
+  "second_iter": true,
+  "prev_feats": "dpo_dataset/adversarial_dataset/xsum/llama/selected_feats.json",
+  "prev_svm": "dpo_dataset/adversarial_dataset/xsum/llama/svm_pipeline.joblib",
+  "feature_processor": "minmax",
+  "max_length": 256,
+  "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct",
+  "use_system_prompt": false
+}

@@ -1,0 +1,16 @@
+{
+  "dataset_name": "m4-abstract",
+  "split_file": "data/m4-abstract/splits/splits.20000.json",
+  "profile_path_mgt": "ilc_profiler/parsed/m4-abstract/vanilla/gemma-cut256/gemma_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/m4-abstract/vanilla/human-cut256/human_doc.out",
+  "mgt_text": "data/m4-abstract/vanilla/abstract.zip",
+  "mgt_method": "gemma",
+  "hwt_text": "data/m4-abstract/vanilla/abstract.zip",
+  "model_path": null,
+  "filter": true,
+  "second_iter": false,
+  "feature_processor": "minmax",
+  "max_length": 256,
+  "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct",
+  "use_system_prompt": false
+}
