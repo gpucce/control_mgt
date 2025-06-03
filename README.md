@@ -2,7 +2,7 @@
 
 Code for the ACL 2025 Findings paper **"Stress-testing Machine Generated Text Detection: Shifting Language Models Writing Style to Fool Detectors"** \[[ACL](https://2025.aclweb.org/)\] \[[arxiv](https://arxiv.org/abs/2505.24523)\]
 
-<!-- ![StressTestingMGTDetectorsViaDPO](assets/Stress-testingMachineGeneratedTextDetection_graphical.png "Stress-testing Machine Generated Text Detection: Shifting Language Models Writing Style to Fool Detectors") -->
+![StressTestingMGTDetectorsViaDPO](assets/Stress-testingMachineGeneratedTextDetection_graphical.png "Stress-testing Machine Generated Text Detection: Shifting Language Models Writing Style to Fool Detectors")
 
 # Datasets
 We perform our exepriments starting from two datasets: [XSUM](https://huggingface.co/datasets/EdinburghNLP/xsum) and [M4-Abstract](). The train-test splits are stored in the [data](data) folder.
