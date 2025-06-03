@@ -12,7 +12,7 @@ For both datasets, the adversarial datasets that we generate via the DPO fine-tu
 # Workflow
 
 1. Profile HWT and MGT texts
-2. Obtain the adversarial dataset dataset
+2. Obtain the adversarial dataset
 3. DPO fine-tuning of LLM generator
 4. Generate new MGT with the fine tuned models
 5. Evaluate Detectors
