@@ -1,0 +1,10 @@
+{
+  "dataset_name": "xsum-naive-iter2",
+  "split_file": "data/xsum/splits/split.100000.json",
+  "mgt_text": "generation_code/generations/xsum-naive-iter-1/gemma-dpo-iter1/0131-1939/generations-0207_1046.json",
+  "hwt_text": "data/xsum/vanilla/xsum.zip",
+  "mgt_method": "gemma-dpo-iter1",
+  "num_samples": 1583,
+  "second_iter": false,
+  "prev_ids": null
+}

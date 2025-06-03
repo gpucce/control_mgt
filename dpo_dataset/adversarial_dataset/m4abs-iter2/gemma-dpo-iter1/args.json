@@ -1,0 +1,18 @@
+{
+  "dataset_name": "m4abs-iter2",
+  "split_file": "data/m4abs/splits/splits.20000.json",
+  "profile_path_mgt": "ilc_profiler/parsed/m4abs/dpo-iter1/gemma-dpo-iter1/0202-1734-cut256/gemma-dpo-iter1_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/m4abs/vanilla/human-cut256/human_doc.out",
+  "mgt_text": "generation_code/generations/m4abs-iter-1/gemma-dpo-iter1/0202-1734/generations-0211_0951.json",
+  "mgt_method": "gemma-dpo-iter1",
+  "hwt_text": "data/m4abs/vanilla/abstract.zip",
+  "model_path": null,
+  "filter": true,
+  "second_iter": true,
+  "prev_feats": "dpo_dataset/adversarial_dataset/m4abs/gemma/selected_feats.json",
+  "prev_svm": "dpo_dataset/adversarial_dataset/m4abs/gemma/svm_pipeline.joblib",
+  "epsilon": 0.2,
+  "feature_processor": "minmax",
+  "max_length": 256,
+  "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct"
+}
