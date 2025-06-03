@@ -19,8 +19,6 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, Auto
 from transformers import TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import PeftModel
 
-from llm2vec_classifier import LLM2VecForSequenceClassification, llm2vec_tokenize
-
 import os
 os.environ["WANDB_PROJECT"] = "control_mgt"
 

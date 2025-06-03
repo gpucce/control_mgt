@@ -33,11 +33,14 @@ def main(args):
     if args.split_path is not None:
         test_split = json.load(open(args.split_path))["te"]
         data = pd.DataFrame(data)
+        data["doc-id"] = data["doc-id"].astype(int)
         data = data[data["doc-id"].isin(test_split)]
         data = data.to_dict(orient="records")
-        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "radar_detector", args.target)
+    
+    if args.datapath.endswith(".zip"):
+        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", "")) #, "radar_detector") #, args.target)
     else:
-        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "radar_detector", args.target)
+        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "radar_detector") #, args.target)
 
     tokenizer = AutoTokenizer.from_pretrained("TrustSafeAI/RADAR-Vicuna-7B")
     clf = AutoModelForSequenceClassification.from_pretrained("TrustSafeAI/RADAR-Vicuna-7B").to(device)
