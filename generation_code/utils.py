@@ -6,7 +6,7 @@ SYSTEM_PROMPTS_XSUM=[
 ]
 
 SYSTEM_PROMPT_M4ABS=[
-    "You are an university professor working in the academic field",
+    "You are a university professor working in the academic field",
 ]
 
 USER_PROMPTS_XSUM_INFORMED=[
@@ -63,6 +63,7 @@ def get_random_prompt_xsum_linguistic(m, informed):
 def postprocess_text(text):
     try:
         text = re.sub(r"\s+", " ", text)
+        text = text.lstrip("#* ")
     except:
         pass
     

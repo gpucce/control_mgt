@@ -48,7 +48,7 @@ def get_vllm_model(model_name, enable_lora=False, max_tokens=1024):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = LLM(
         model=model_name,
-        max_model_len=1024,
+        max_model_len=512,
         enable_lora=enable_lora,
         max_lora_rank=64,
         dtype=torch.bfloat16)
@@ -56,25 +56,46 @@ def get_vllm_model(model_name, enable_lora=False, max_tokens=1024):
     return model, tokenizer, sample_params
 
 
+def get_outdir(args):
+    basedir = os.path.join("generation_code", "generations")
+    if args.adapter_path is None:
+        raise NotImplementedError
+        if "xsum" in args.datapath:
+            outdir = os.path.join("generation_code", "generations", "xsum", args.model_name)
+        elif "m4-abstract" in args.datapath:
+            outdir = os.path.join("generation_code", "generations", "m4abs", args.model_name)
+            return get_outdir
+
+    training_dataset = args.adapter_path.split("/")[-2]
+    adapter_name = args.adapter_path.split("/")[-1]
+    model_name = args.model_name
+    path_fn = os.path.join(basedir, training_dataset, model_name, adapter_name) 
+    return path_fn
+
+
 def main(args):
     timestamp = datetime.now().strftime("%m%d_%H%M")
     model_name = args.model_name
+    outdir = get_outdir(args)
 
-    if args.adapter_path is not None:
-        outdir = os.path.join("generation_code", "generations", *args.adapter_path.split("/")[-2:])
-    else:
-        if "xsum" in args.datapath:
-            outdir = os.path.join("generation_code", "generations", "xsum", model_name)
-        elif "m4-abstract" in args.datapath:
-            outdir = os.path.join("generation_code", "generations", "m4-abstract", model_name)
-        else:
-            raise NotImplementedError
+    # # TODO FIXME this ----->
+    # If args.adapter_path is not None:
+    #     outdir = os.path.join("generation_code", "generations", *args.adapter_path.split("/")[-3:])
+    # Else:
+    #     if "xsum" in args.datapath:
+    #         outdir = os.path.join("generation_code", "generations", "xsum", model_name)
+    #     elif "m4-abstract" in args.datapath:
+    #         outdir = os.path.join("generation_code", "generations", "m4-abstract", model_name)
+    #     else:
+    #         raise NotImplementedError
     os.makedirs(outdir, exist_ok=True)
-    output_fn = os.path.join(outdir, f"{args.output}{('-' + args.note) if args.note != '' else ''}-{timestamp}.json")
+    out_fn = "generations" if not args.testset_only else "generations-testset"
+    output_fn = os.path.join(outdir, f"{out_fn}-{timestamp}.json")
+    # TODO FIXME this <-----
 
     data_train, data_val, data_test = get_data(args, lines=True)
 
-    if args.alldata:
+    if not args.testset_only:
         data = pd.concat((data_train, data_val, data_test))
     else:
         data = data_test
@@ -93,7 +114,6 @@ def main(args):
     
     ids = data["doc-id"]
     real_articles = data.human
-    # llama_articles = data.llama
     model, _ , sample_params = get_vllm_model(
         model_name=args.model,
         enable_lora=True if args.adapter_path is not None else False,
@@ -147,10 +167,9 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--model_name", type=str, required=True)
-    parser.add_argument("--output", type=str, default="xsum")
     parser.add_argument("--note", type=str, default="")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--alldata", action="store_true")
+    parser.add_argument("--testset_only", action="store_true")
     parser.add_argument("--test_num_samples", type=int, default=None)
     parser.add_argument("--max_tokens", type=int, default=1024)
     parser.add_argument("--split_path", type=str, default="data/xsum_generations/splits/split.100000.json")
