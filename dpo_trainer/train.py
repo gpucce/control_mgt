@@ -111,7 +111,7 @@ def get_lora_config(rank=32):
 def get_system_prompt(dataset_name):
     if "xsum" in dataset_name:
         system_content = "You are a journalist from the United Kingdom writing for a national newspaper on a broad range of topics"
-    elif "abstract" in dataset_name:
+    elif "m4" in dataset_name:
         system_content = "You are an university professor working in the academic field"
     return {"role": "system", "content": system_content}
 
@@ -182,7 +182,7 @@ def main(args):
     )
 
     # Set reference model for >=2 dpo iterations
-    if "iter2" in args.dataset_name:
+    if "iter-2" in args.dataset_name:
         print("- loading LoRA reference model")
         ref_model, _ = _get_model(args.model_name, pretrained_adapter=args.adapter_path, attn_impl=args.attn_impl, device=device, is_peft_trainable=False)
     else:
@@ -198,7 +198,7 @@ def main(args):
         callbacks=[earlystop],
     )
     
-    trainer.log({"dataset_path": args.datapath, "dataset_name": args.dataset_name})
+    trainer.log({"dataset_path": args.datapath, "dataset_name": args.dataset_name, "adapter_path": args.adapter_path})
     trainer.train()
 
     if args.nosave:
