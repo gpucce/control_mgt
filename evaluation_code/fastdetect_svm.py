@@ -38,6 +38,23 @@ def get_split(data_mgt, data_hwt, idx):
 
     return X_feats, labels, ids
 
+def get_output_dir(args):
+    basedir = os.path.join("evaluation_code", "evaluations")
+    model_name, run_name, _ = args.mgt_profile.split("/")[-3:]
+    run_name = run_name.replace("-cut256", "")
+    dataset_name = "xsum" if "xsum" in args.mgt_profile else "m4abs"
+    if "naive" in args.mgt_profile:
+        dataset_name += "-naive"
+    if "iter1" in args.mgt_profile:
+        dataset_name += "-iter-1"
+    elif "iter2" in args.mgt_profile:
+        dataset_name += "-iter-2"
+    else:
+        pass
+    target = args.mgt_profile.split("/")[-1].replace("_doc.out", "")    
+    target = target.replace("testset_", "")
+    outdir = os.path.join(basedir, dataset_name, model_name, run_name, "svm_detector", target)
+    return outdir, target 
 
 def main(args):
     profile_hwt= pd.read_csv(args.hwt_profile, sep="\t")
@@ -45,17 +62,7 @@ def main(args):
     testset_ids = json.load(open(args.split_path))["te"]
     feature_set = [line.strip() for line in open("profiling_results/all_features_order.txt")]
 
-    target = args.mgt_profile.split("/")[-1].replace("_doc.out", "")
-    
-    if args.split_path is not None:
-        test_split = json.load(open(args.split_path))["te"]
-        data = pd.DataFrame(data)
-        data = data[data["doc-id"].isin(test_split)]
-        data = data.to_dict(orient="records")
-        output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "svm_detector", args.target)
-    else:
-        output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "svm_detector", args.target)
-
+    output_dir, target = get_output_dir(args)
 
     if not args.unfiltered:
         non_verbalized_features = [line.strip() for line in open("profiling_results/TO_REMOVE.txt")]
@@ -74,7 +81,7 @@ def main(args):
     print(f"- Evaluation support-vector classifier INFO" + "-" * 25)
     print(f"- storing results in: {output_dir}")
     print(f"- target: {target}")
-    print(f"- num pairs: {len(X_te)}")
+    print(f"- num pairs: {len(X_te) // 2}")
     print("-" * 45)
 
     model = joblib.load(args.svm_path)
@@ -83,6 +90,8 @@ def main(args):
     soft_preds = model.decision_function(X_te)
     
     metrics = classification_report(y_true=labels, y_pred=hard_preds, output_dict=True)
+
+    print(metrics["macro avg"])
 
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, "clf_metrics.json"), "w") as jf:
@@ -97,9 +106,9 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--hwt_profile", type=str, default="ilc_profiler/parsed/xsum/vanilla/human-cut256/human_doc.out")
     parser.add_argument("--mgt_profile", type=str, default="ilc_profiler/parsed/adversarial-dpo-iter1-filtered/2025-01-30-23-48/dpo-llama-1st-iter-cut256/dpo-llama-1st-iter_doc.out")
-    parser.add_argument("--split_path", type=str, default="data/splits/split.100000.json")
     parser.add_argument("--svm_path", type=str, default="profiling_results/adversarial_dataset/xsum/dpo-iter1-filtered-cut256/svm_pipeline.joblib")
     parser.add_argument("--unfiltered", action="store_true")
     parser.add_argument("--split_path", type=str, default=None)
+    # parser.add_argument("--target", type=str, required=True)
     args = parser.parse_args()
     main(args)

@@ -1,0 +1,12 @@
+{
+    "ttr_form_chunks_200": 11,
+    "ttr_lemma_chunks_200": 22,
+    "lexical_density": 10,
+    "upos_dist_NOUN": 32,
+    "upos_dist_PROPN": 51,
+    "ttr_form_chunks_100": 58,
+    "n_sentences": 60,
+    "upos_dist_ADJ": 48,
+    "aux_num_pers_dist_Sing+3": 29,
+    "verbs_form_dist_Ger": 42
+}

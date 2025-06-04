@@ -47,8 +47,11 @@ def main(args):
     if args.split_path is not None:
         test_split = json.load(open(args.split_path))["te"]
         data = pd.DataFrame(data)
+        data["doc-id"] = data["doc-id"].astype(int)
         data = data[data["doc-id"].isin(test_split)]
         data = data.to_dict(orient="records")
+
+    if args.datapath.endswith(".zip"):
         output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "mage_detector", args.target)
     else:
         output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "mage_detector", args.target)

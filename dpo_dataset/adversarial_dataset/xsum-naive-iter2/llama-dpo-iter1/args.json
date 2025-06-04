@@ -1,0 +1,12 @@
+{
+  "dataset_name": "xsum-naive-iter2",
+  "split_file": "data/xsum/splits/split.100000.json",
+  "mgt_text": "generation_code/generations/xsum-iter-1/llama-dpo-iter1/0130-2348/generations-0203_1752.json",
+  "hwt_text": "data/xsum/vanilla/xsum.zip",
+  "mgt_method": "llama-dpo-iter1",
+  "num_samples": 3530,
+  "profile_path_mgt": "ilc_profiler/parsed/xsum/adversarial-naive-dpo-iter1/2025-01-30-23-51/dpo-llama-1st-iter-cut256/dpo-llama-1st-iter_doc.out",
+  "profile_path_hwt": "ilc_profiler/parsed/xsum/vanilla/human-cut256/llama_doc.out",
+  "second_iter": false,
+  "prev_ids": "dpo_dataset/adversarial_dataset/xsum-naive/llama/selected_ids.csv"
+}

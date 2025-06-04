@@ -1,0 +1,10 @@
+{
+  "dataset_name": "m4abs-naive-iter2",
+  "split_file": "data/m4abs/splits/splits.20000.json",
+  "mgt_text": "generation_code/generations/m4abs-naive-iter-1/llama-dpo-iter1/0210-1509/generations-0210_1727.json",
+  "hwt_text": "data/m4abs/vanilla/abstract.zip",
+  "mgt_method": "llama-dpo-iter1",
+  "num_samples": 1225,
+  "second_iter": false,
+  "prev_ids": null
+}

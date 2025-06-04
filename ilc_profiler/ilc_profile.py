@@ -71,23 +71,27 @@ def get_outdir(args):
     model_name = datapath.split("/")[-3]    # FIXME
     if "xsum-iter-1" in datapath:
         outdir = os.path.join(basedir, "xsum", "dpo-iter1", model_name, adapter_name)
+    elif "xsum-iter-2" in datapath:
+        outdir = os.path.join(basedir, "xsum", "dpo-iter2", model_name, adapter_name)
+    elif "xsum-naive-iter-1" in datapath:
+        outdir = os.path.join(basedir, "xsum", "dpo-iter1-naive", model_name, adapter_name)
+    elif "xsum-naive-iter-2" in datapath:
+        outdir = os.path.join(basedir, "xsum", "dpo-iter2-naive", model_name, adapter_name)
     elif "m4abs-iter-1" in datapath:
-        outdir = os.path.join(basedir, "m4-abs", "dpo-iter1", model_name, adapter_name)
-    elif "m4-abs" in datapath:
-        pass
-    elif "xsum" in datapath:
-        basedir = os.path.join(basedir, "xsum", "vanilla", model_name)  # FIXME model_name is correct? (gemma OR llama)
-        pass
+        outdir = os.path.join(basedir, "m4abs", "dpo-iter1", model_name, adapter_name)
+    elif "m4abs-iter-2" in datapath:
+        outdir = os.path.join(basedir, "m4abs", "dpo-iter2", model_name, adapter_name)
+    elif "m4abs-naive-iter-1" in datapath:
+        outdir = os.path.join(basedir, "m4abs", "dpo-iter1-naive", model_name, adapter_name)
+    elif "m4abs-naive-iter-2" in datapath:
+        outdir = os.path.join(basedir, "m4abs", "dpo-iter2-naive", model_name, adapter_name)
+    # elif "xsum" in datapath:
+    #     basedir = os.path.join(basedir, "xsum", "vanilla", model_name)  # FIXME model_name is correct? (gemma OR llama)
     return outdir
 
 def main(args):
     data = get_data(args.datapath)
     parser_outdir = get_outdir(args)
-    # if args.outdir is None:
-    #     # parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[2:-1], args.method)
-    #     parser_outdir = os.path.join("ilc_profiler", "parsed", *args.datapath.split("/")[-3:-1], args.method)
-    # else:
-    #     parser_outdir = args.outdir
     
     if args.max_length is not None:
         parser_outdir += f"-cut{args.max_length}"
@@ -123,7 +127,6 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--datapath", type=str, default="generation_code/generations/adversarial-dpo-iter1-filtered/2025-01-28-18-49/xsum-alldata-250128_223602.json")
-    parser.add_argument("--outdir", type=str, default=None)
     parser.add_argument("--skip_parse", action="store_true")
     parser.add_argument("--method", type=str, default="dpo-llama-1st-iter")
     parser.add_argument("--device", type=str, default="cuda")

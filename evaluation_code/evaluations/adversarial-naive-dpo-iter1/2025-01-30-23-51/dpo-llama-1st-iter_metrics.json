@@ -1,1 +1,0 @@
-{"mage": {"f1-score": 0.4, "precision": 0.41, "recall": 0.41}, "radar": {"f1-score": 0.79, "precision": 0.85, "recall": 0.79}, "detectaive": {"f1-score": 0.53, "precision": 0.53, "recall": 0.53}}

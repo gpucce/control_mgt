@@ -56,12 +56,12 @@ def __load_base_model_and_tokenizer(name):
         base_model_kwargs.update(dict(torch_dtype=torch.float16))
     if 'gpt-j' in name:
         base_model_kwargs.update(dict(revision='float16'))
-    base_model = transformers.AutoModelForCausalLM.from_pretrained(name, **base_model_kwargs)
+    base_model = transformers.AutoModelForCausalLM.from_pretrained(name, **base_model_kwargs, token=os.getenv("MY_HF_TOKEN"), torch_dtype=torch.bfloat16)
     optional_tok_kwargs = {}
     if "facebook/opt-" in name:
         print("Using non-fast tokenizer for OPT")
         optional_tok_kwargs['fast'] = False
-    base_tokenizer = transformers.AutoTokenizer.from_pretrained(name, **optional_tok_kwargs)
+    base_tokenizer = transformers.AutoTokenizer.from_pretrained(name, **optional_tok_kwargs, token=os.getenv("MY_HF_TOKEN"))
     base_tokenizer.pad_token_id = base_tokenizer.eos_token_id
     return base_model, base_tokenizer
 
@@ -245,7 +245,7 @@ def generate_data(dataset, key = "real"):
     # then generate n_samples samples
 
     # remove duplicates from the data
-    data = list(dict.fromkeys(data))  # deterministic, as opposed to set()
+    # data = list(dict.fromkeys(data))  # deterministic, as opposed to set()
 
     # strip whitespace around each example
     data = [x.strip() for x in data]
@@ -259,8 +259,8 @@ def generate_data(dataset, key = "real"):
         if len(long_data) > 0:
             data = long_data
 
-    random.seed(0)
-    random.shuffle(data)
+    # random.seed(0)
+    # random.shuffle(data)
 
     #data = data[:5_000]
 
@@ -271,7 +271,8 @@ def generate_data(dataset, key = "real"):
     print(f"Total number of samples: {len(data)}")
     print(f"Average number of words: {np.mean([len(x.split()) for x in data])}")
 
-    return generate_samples(data[:n_samples], batch_size=batch_size)
+    # return generate_samples(data[:n_samples], batch_size=batch_size)
+    return generate_samples(data, batch_size=batch_size)
 
 def get_perturbation_results(span_length=10, n_perturbations=1, n_samples=500):
     __load_mask_model()
@@ -371,22 +372,30 @@ def run_perturbation_experiment(results, criterion, span_length=10, n_perturbati
     }
 
 
+def get_data(datapath):
+    if datapath.endswith(".zip"):
+        data = pd.read_json(datapath, lines=True).to_dict(orient="records")
+    else:
+        data = json.load(open(datapath))
+    return data
+
 
 def main(args):
     global  base_model, mask_model, base_tokenizer, preproc_tokenizer, mask_tokenizer, FILL_DICTIONARY, mask_filling_model_name, n_samples, batch_size, n_perturbation_rounds, n_similarity_samples, data, max_length
     
+    # with open(args.datapath, "r") as input_file:
+    #     temp = json.loads(input_file.read())
+    temp = get_data(args.datapath)
+
     if args.split_path is not None:
         test_split = json.load(open(args.split_path))["te"]
-        data = pd.DataFrame(data)
+        data = pd.DataFrame(temp)
+        data["doc-id"] = data["doc-id"].astype(int)
         data = data[data["doc-id"].isin(test_split)]
-        data = data.to_dict(orient="records")
+        temp = data.to_dict(orient="records")
         output_dir = os.path.join("evaluation_code", "evaluations", args.datapath.split("/")[-1].replace(".zip", ""), "detect-gpt_detector", args.target)
     else:
         output_dir = os.path.join("evaluation_code", "evaluations", *args.datapath.split("/")[2:-1], "detect-gpt_detector", args.target)
-
-    
-    with open(args.datapath, "r") as input_file:
-        temp = json.loads(input_file.read())
     
     dataset = datasets.Dataset.from_dict({
         'real': [el["human"] for el in temp],
@@ -427,7 +436,7 @@ def main(args):
     elif args.half:
         half_kwargs = dict(torch_dtype=torch.bfloat16)
     print(f'Loading mask filling model {mask_filling_model_name}...')
-    mask_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(mask_filling_model_name, **int8_kwargs, **half_kwargs)
+    mask_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(mask_filling_model_name, **int8_kwargs, **half_kwargs, torch_dtype=torch.bfloat16)
     try:
         n_positions = mask_model.config.n_positions
     except AttributeError:
@@ -475,12 +484,12 @@ def main(args):
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--datapath", type=str, default="generation_code/generations/adversarial-dpo-iter1-filtered/2025-01-28-18-49/xsum-testset-250128_223602.json")
+    parser.add_argument("--datapath", type=str, default="generation_code/generations/xsum-iter-1/llama-dpo-iter1/0130-2348/generations-0203_1752.json")
     parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--target", type=str, default="llama")
+    parser.add_argument("--target", type=str, default="llama-dpo-iter1")
     parser.add_argument("--batchsize", type=int, default=64)
-    parser.add_argument("--split_path", type=str, default=None)
+    parser.add_argument("--split_path", type=str, default="data/xsum/splits/split.100000.json")
     
     parser.add_argument("--no_normalization", action='store_true')
     parser.add_argument('--dataset_key', type=str, default="real")
