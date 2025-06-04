@@ -76,7 +76,7 @@ python generation_code/fastgen.py \
 Generations will be stored in the [generation_code/generation](generation_code/generations) folder, in a subfolder named after the `$dataset_name/$model_name/$timestamp`.
 
 ## Profiling
-Run the Profiler (TODO)
+For the profiling phase, we leverage [ProfilingUD](https://aclanthology.org/2020.lrec-1.883/). You can run the profiler on the texts via the [online tool](http://linguistic-profiling.italianlp.it/).
 
 ## Adversarial Dataset Generation
 The [dpo_dataset/adversarial_dataset_generator.py](dpo_dataset/adversarial_dataset_generator.py) is responsible for generating the final adversarial dataset. It takes as input the generations obtained in the previous step.
